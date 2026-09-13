@@ -18,6 +18,7 @@ import { Stocktake } from './pages/Stocktake';
 import { GlobalSearch } from './pages/GlobalSearch';
 import { Clearance } from './pages/Clearance';
 import { Reports } from './pages/Reports';
+import { Settings } from './pages/Settings';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
               <Route path="/search" element={<GlobalSearch />} />
               <Route path="/clearance" element={<Clearance />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>
         </Routes>

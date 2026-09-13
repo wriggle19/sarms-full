@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react';
 import {
   LayoutDashboard, Boxes, ClipboardList, CheckSquare, PackageCheck,
   Wrench, AlertTriangle, Trash2, Truck, ScanLine, BarChart3, UserMinus,
-  Search, Bell,
+  Search, Bell, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 
@@ -20,12 +20,14 @@ const NAV_ITEMS = [
   { to: '/stocktake', label: 'Stocktake', icon: ScanLine },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/clearance', label: 'Clearance', icon: UserMinus },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon, admin: true },
 ];
 
 export function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const visibleNav = NAV_ITEMS.filter((i) => !i.admin || hasPermission('users.view'));
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -47,7 +49,7 @@ export function Layout() {
           SARMS
         </div>
         <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+          {visibleNav.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
