@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sarms
+      POSTGRES_PASSWORD: sarms
+      POSTGRES_DB: sarms
+    volumes:
+      - sarms_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # remove/comment out once you no longer need host access for debugging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: "postgresql://sarms:sarms@postgres:5432/sarms"
+      JWT_SECRET: "change-this-to-a-long-random-string"
+      PORT: 3000
+    volumes:
+      - sarms_attachments:/app/storage/attachments
+    expose:
+      - "3000"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      # - "443:443"   # uncomment once you add TLS certs for internet-facing deployment
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  sarms_postgres_data:
+  sarms_attachments:

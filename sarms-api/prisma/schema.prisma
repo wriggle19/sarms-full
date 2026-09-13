@@ -1,0 +1,899 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================================
+// IDENTITY, ROLES & ORG STRUCTURE
+// ==========================================================
+
+model User {
+  id             Int       @id @default(autoincrement())
+  employeeId     String?   @unique
+  fullName       String
+  email          String    @unique
+  phone          String?
+  passwordHash   String
+  status         UserStatus @default(ACTIVE)
+  profilePhotoUrl String?
+  departmentId   Int?
+  department     Department? @relation("DepartmentUsers", fields: [departmentId], references: [id])
+  positionId     Int?
+  position       Position?  @relation(fields: [positionId], references: [id])
+  campusId       Int?
+  campus         Campus?    @relation(fields: [campusId], references: [id])
+  supervisorId   Int?
+  supervisor     User?      @relation("Supervision", fields: [supervisorId], references: [id])
+  directReports  User[]     @relation("Supervision")
+  startDate      DateTime?
+  endDate        DateTime?
+  lastLoginAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  roles                UserRole[]
+  headOfDepartments    Department[]        @relation("DepartmentHead")
+  custodyAssignments   AssetAssignment[]   @relation("Custodian")
+  issuedAssignments    AssetAssignment[]   @relation("IssuedBy")
+  requestsMade         AssetRequest[]      @relation("Requester")
+  approvalsGiven       RequestApproval[]
+  transfersInitiated   AssetTransfer[]     @relation("TransferredBy")
+  transfersApproved    AssetTransfer[]     @relation("TransferApprovedBy")
+  maintenanceReported  MaintenanceRecord[] @relation("ReportedBy")
+  incidentsReported    AssetIncident[]     @relation("ReportedBy")
+  disposalsApproved    Disposal[]          @relation("DisposalApprovedBy")
+  stocktakesStarted    Stocktake[]         @relation("StocktakeStartedBy")
+  stocktakeScans       StocktakeItem[]     @relation("ScannedBy")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  attachmentsUploaded  Attachment[]
+  assetsCreated        Asset[]             @relation("AssetCreatedBy")
+  assetsUpdated        Asset[]             @relation("AssetUpdatedBy")
+
+  @@index([departmentId])
+  @@index([supervisorId])
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Role {
+  id          Int    @id @default(autoincrement())
+  name        String @unique
+  description String?
+  isSystem    Boolean @default(false)
+
+  permissions RolePermission[]
+  users       UserRole[]
+  approvalSteps ApprovalStep[]
+}
+
+model Permission {
+  id          Int    @id @default(autoincrement())
+  code        String @unique // e.g. "assets.create", "requests.approve"
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  role         Role       @relation(fields: [roleId], references: [id])
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model Department {
+  id                 Int          @id @default(autoincrement())
+  name               String
+  code               String       @unique
+  parentDepartmentId Int?
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  children           Department[] @relation("DepartmentHierarchy")
+  headUserId         Int?
+  headUser           User?        @relation("DepartmentHead", fields: [headUserId], references: [id])
+  isActive           Boolean      @default(true)
+
+  users               User[]            @relation("DepartmentUsers")
+  positions           Position[]
+  rooms               Room[]
+  owningAssets        Asset[]           @relation("OwningDepartment")
+  responsibleAssets   Asset[]           @relation("ResponsibleDepartment")
+  purchaseOrders      PurchaseOrder[]
+  requests            AssetRequest[]
+}
+
+model Position {
+  id           Int         @id @default(autoincrement())
+  title        String
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  users User[]
+}
+
+model Campus {
+  id      Int        @id @default(autoincrement())
+  name    String
+  address String?
+
+  buildings Building[]
+  users     User[]
+}
+
+model Building {
+  id       Int    @id @default(autoincrement())
+  name     String
+  campusId Int
+  campus   Campus @relation(fields: [campusId], references: [id])
+
+  floors Floor[]
+}
+
+model Floor {
+  id         Int      @id @default(autoincrement())
+  label      String   // e.g. "Ground", "2nd Floor"
+  buildingId Int
+  building   Building @relation(fields: [buildingId], references: [id])
+
+  rooms Room[]
+}
+
+model Room {
+  id           Int       @id @default(autoincrement())
+  name         String    // e.g. "Classroom 201", "Science Lab 2"
+  type         RoomType  @default(OTHER)
+  floorId      Int
+  floor        Floor     @relation(fields: [floorId], references: [id])
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  assetsHere        Asset[]           @relation("CurrentRoom")
+  assignments       AssetAssignment[] @relation("AssignmentRoom")
+  transfersFrom     AssetTransfer[]   @relation("TransferFromRoom")
+  transfersTo       AssetTransfer[]   @relation("TransferToRoom")
+  requestLocations  AssetRequest[]    @relation("RequestRoom")
+  incidents         AssetIncident[]
+  stocktakeExpected StocktakeItem[]   @relation("ExpectedRoom")
+  stocktakeScanned  StocktakeItem[]   @relation("ScannedRoom")
+}
+
+enum RoomType {
+  CLASSROOM
+  OFFICE
+  LAB
+  STORAGE
+  COMMON_AREA
+  OTHER
+}
+
+model AcademicYear {
+  id        Int      @id @default(autoincrement())
+  label     String   @unique // e.g. "2026/2027"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean  @default(false)
+
+  assets      Asset[]
+  assignments AssetAssignment[]
+  requests    AssetRequest[]
+}
+
+// ==========================================================
+// ASSET CATALOG (admin-configurable lookups)
+// ==========================================================
+
+model AssetCategory {
+  id               Int            @id @default(autoincrement())
+  name             String
+  parentCategoryId Int?
+  parentCategory   AssetCategory? @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id])
+  subcategories    AssetCategory[] @relation("CategoryHierarchy")
+
+  assets           Asset[]
+  requests         AssetRequest[]
+  poItems          PurchaseOrderItem[]
+}
+
+model AssetStatus {
+  id       Int     @id @default(autoincrement())
+  code     String  @unique // AVAILABLE, ASSIGNED, ON_LOAN, MAINTENANCE, LOST, DAMAGED, RETIRED, DISPOSED, ...
+  label    String
+  colorHex String?
+
+  assets Asset[]
+}
+
+model AssetCondition {
+  id    Int    @id @default(autoincrement())
+  code  String @unique // NEW, EXCELLENT, GOOD, FAIR, POOR, DAMAGED, BEYOND_REPAIR
+  label String
+  rank  Int    // for sorting best -> worst
+
+  assetsCurrent         Asset[]             @relation("CurrentCondition")
+  assignmentsAtIssue    AssetAssignment[]   @relation("ConditionAtIssue")
+  assignmentsAtReturn   AssetAssignment[]   @relation("ConditionAtReturn")
+  maintenanceBefore     MaintenanceRecord[] @relation("ConditionBefore")
+  maintenanceAfter      MaintenanceRecord[] @relation("ConditionAfter")
+}
+
+model Vendor {
+  id            Int     @id @default(autoincrement())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  address       String?
+  country       String?
+  taxId         String?
+  website       String?
+  status        VendorStatus @default(ACTIVE)
+  notes         String?
+
+  assets            Asset[]
+  purchaseOrders    PurchaseOrder[]
+  maintenanceJobs   MaintenanceRecord[]
+  disposalsHandled  Disposal[]          @relation("DisposalVendor")
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ==========================================================
+// ASSET MASTER RECORD
+// ==========================================================
+
+model Asset {
+  id               Int             @id @default(autoincrement())
+  assetTag         String          @unique
+  qrToken          String          @unique // opaque token used in QR code, not the raw id
+  name             String
+  categoryId       Int
+  category         AssetCategory   @relation(fields: [categoryId], references: [id])
+  manufacturer     String?
+  model            String?
+  serialNumber     String?
+  serviceTag       String?
+  imei             String?
+  macAddress       String?
+
+  acquisitionDate   DateTime?
+  acquisitionMethod AcquisitionMethod @default(PURCHASE)
+  vendorId          Int?
+  vendor            Vendor?           @relation(fields: [vendorId], references: [id])
+  purchaseOrderId   Int?
+  purchaseOrder     PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+  invoiceNumber     String?
+
+  warrantyStart DateTime?
+  warrantyEnd   DateTime?
+
+  originalCost  Decimal? @db.Decimal(12, 2)
+  currency      String?  @default("GHS")
+  fundingSource String?
+
+  owningDepartmentId      Int
+  owningDepartment        Department @relation("OwningDepartment", fields: [owningDepartmentId], references: [id])
+  responsibleDepartmentId Int
+  responsibleDepartment   Department @relation("ResponsibleDepartment", fields: [responsibleDepartmentId], references: [id])
+
+  currentRoomId      Int?
+  currentRoom        Room?           @relation("CurrentRoom", fields: [currentRoomId], references: [id])
+  currentCustodianId Int?
+  // Note: current custodian is a convenience pointer for fast reads.
+  // The source of truth for "who had it when" is AssetAssignment, never this field alone.
+
+  statusId    Int
+  status      AssetStatus    @relation(fields: [statusId], references: [id])
+  conditionId Int
+  condition   AssetCondition @relation("CurrentCondition", fields: [conditionId], references: [id])
+
+  academicYearId Int?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  parentAssetId Int?
+  parentAsset   Asset?  @relation("AssetComponents", fields: [parentAssetId], references: [id])
+  components    Asset[] @relation("AssetComponents")
+
+  description String?
+  notes       String?
+  isDeleted   Boolean  @default(false)
+
+  createdById Int
+  createdBy   User     @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  updatedById Int?
+  updatedBy   User?    @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignments      AssetAssignment[]
+  transfersFrom     AssetTransfer[]      @relation("TransferAsset")
+  requests          AssetRequest[]       @relation("RequestSpecificAsset")
+  maintenanceRecords MaintenanceRecord[]
+  incidents         AssetIncident[]
+  disposal          Disposal?
+  stocktakeItems    StocktakeItem[]
+  history           AssetHistory[]
+
+  @@index([categoryId])
+  @@index([statusId])
+  @@index([owningDepartmentId])
+  @@index([currentRoomId])
+  @@index([serialNumber])
+}
+
+enum AcquisitionMethod {
+  PURCHASE
+  DONATION
+  TRANSFER
+  OTHER
+}
+
+// ==========================================================
+// CUSTODY / ASSIGNMENT / TRANSFER (history-preserving)
+// ==========================================================
+
+model AssetAssignment {
+  id             Int            @id @default(autoincrement())
+  assetId        Int
+  asset          Asset          @relation(fields: [assetId], references: [id])
+  assignmentType AssignmentType
+
+  custodianUserId Int?
+  custodian       User? @relation("Custodian", fields: [custodianUserId], references: [id])
+  roomId          Int?
+  room            Room? @relation("AssignmentRoom", fields: [roomId], references: [id])
+  departmentId    Int?
+
+  academicYearId Int?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  requestId Int?
+  request   AssetRequest? @relation(fields: [requestId], references: [id])
+
+  issuedById Int
+  issuedBy   User     @relation("IssuedBy", fields: [issuedById], references: [id])
+  issuedAt   DateTime @default(now())
+
+  expectedReturnDate DateTime?
+  actualReturnDate   DateTime?
+
+  conditionAtIssueId  Int
+  conditionAtIssue    AssetCondition  @relation("ConditionAtIssue", fields: [conditionAtIssueId], references: [id])
+  conditionAtReturnId Int?
+  conditionAtReturn   AssetCondition? @relation("ConditionAtReturn", fields: [conditionAtReturnId], references: [id])
+
+  acknowledgedAt             DateTime?
+  acknowledgementSignatureUrl String?
+
+  status AssignmentStatus @default(ACTIVE)
+  notes  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+  @@index([custodianUserId])
+  @@index([status])
+}
+
+enum AssignmentType {
+  PERSON
+  ROOM
+  DEPARTMENT
+  POOL
+}
+
+enum AssignmentStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+  LOST
+}
+
+model AssetTransfer {
+  id     Int   @id @default(autoincrement())
+  assetId Int
+  asset   Asset @relation("TransferAsset", fields: [assetId], references: [id])
+
+  fromRoomId Int?
+  fromRoom   Room? @relation("TransferFromRoom", fields: [fromRoomId], references: [id])
+  toRoomId   Int?
+  toRoom     Room? @relation("TransferToRoom", fields: [toRoomId], references: [id])
+
+  fromDepartmentId Int?
+  toDepartmentId   Int?
+  fromCustodianId  Int?
+  toCustodianId    Int?
+
+  reason         String?
+  transferredById Int
+  transferredBy   User     @relation("TransferredBy", fields: [transferredById], references: [id])
+  transferDate    DateTime @default(now())
+
+  approvedById Int?
+  approvedBy   User? @relation("TransferApprovedBy", fields: [approvedById], references: [id])
+
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+}
+
+// ==========================================================
+// REQUEST / APPROVAL / ISSUANCE
+// ==========================================================
+
+model AssetRequest {
+  id            Int          @id @default(autoincrement())
+  requestNumber String       @unique // REQ-2026-000001
+
+  requesterId Int
+  requester   User @relation("Requester", fields: [requesterId], references: [id])
+
+  departmentId Int
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  requestType RequestType
+
+  categoryId       Int?
+  category         AssetCategory? @relation(fields: [categoryId], references: [id])
+  specificAssetId  Int?
+  specificAsset    Asset?         @relation("RequestSpecificAsset", fields: [specificAssetId], references: [id])
+
+  quantity Int @default(1)
+
+  purpose        String?
+  locationRoomId Int?
+  locationRoom   Room?    @relation("RequestRoom", fields: [locationRoomId], references: [id])
+  startDate      DateTime?
+  expectedEndDate DateTime?
+  academicYearId Int?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id])
+
+  priority      RequestPriority @default(MEDIUM)
+  justification String?
+
+  status RequestStatus @default(SUBMITTED)
+
+  currentApprovalStepId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvals   RequestApproval[]
+  assignments AssetAssignment[]
+
+  @@index([requesterId])
+  @@index([status])
+}
+
+enum RequestType {
+  NEW_EQUIPMENT
+  TEMPORARY_LOAN
+  LONG_TERM_ASSIGNMENT
+  ACADEMIC_YEAR_ASSIGNMENT
+  CLASSROOM_EQUIPMENT
+  DEPARTMENT_EQUIPMENT
+  REPLACEMENT
+  REPAIR
+  TRANSFER
+  RETURN
+  ACCESSORY
+  OTHER
+}
+
+enum RequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  DRAFT
+  SUBMITTED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+  ISSUED
+  CANCELLED
+  COMPLETED
+}
+
+model ApprovalWorkflow {
+  id                  Int          @id @default(autoincrement())
+  name                String
+  appliesToRequestType RequestType?
+  appliesToCategoryId  Int?
+  minValueThreshold    Decimal?    @db.Decimal(12, 2)
+  isActive             Boolean     @default(true)
+
+  steps ApprovalStep[]
+}
+
+model ApprovalStep {
+  id             Int              @id @default(autoincrement())
+  workflowId     Int
+  workflow       ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  stepOrder      Int
+  approverType   ApproverType
+  approverRoleId Int?
+  approverRole   Role?            @relation(fields: [approverRoleId], references: [id])
+  specificUserId Int?
+
+  approvals RequestApproval[]
+
+  @@unique([workflowId, stepOrder])
+}
+
+enum ApproverType {
+  LINE_MANAGER
+  DEPARTMENT_HEAD
+  ROLE
+  SPECIFIC_USER
+}
+
+model RequestApproval {
+  id         Int              @id @default(autoincrement())
+  requestId  Int
+  request    AssetRequest     @relation(fields: [requestId], references: [id])
+  stepId     Int
+  step       ApprovalStep     @relation(fields: [stepId], references: [id])
+  approverId Int
+  approver   User             @relation(fields: [approverId], references: [id])
+  decision   ApprovalDecision
+  comment    String?
+  decidedAt  DateTime         @default(now())
+
+  @@index([requestId])
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+// ==========================================================
+// PROCUREMENT
+// ==========================================================
+
+model PurchaseOrder {
+  id           Int               @id @default(autoincrement())
+  poNumber     String            @unique // PO-2026-000001
+  vendorId     Int
+  vendor       Vendor            @relation(fields: [vendorId], references: [id])
+  departmentId Int
+  department   Department        @relation(fields: [departmentId], references: [id])
+  status       PurchaseOrderStatus @default(DRAFT)
+  currency     String            @default("GHS")
+  totalAmount  Decimal           @db.Decimal(12, 2)
+  orderedById  Int
+  orderDate    DateTime          @default(now())
+  expectedDeliveryDate DateTime?
+  invoiceNumber String?
+  invoiceDate   DateTime?
+  createdAt    DateTime          @default(now())
+
+  items  PurchaseOrderItem[]
+  assets Asset[]
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrderItem {
+  id          Int            @id @default(autoincrement())
+  poId        Int
+  po          PurchaseOrder  @relation(fields: [poId], references: [id])
+  description String
+  categoryId  Int?
+  category    AssetCategory? @relation(fields: [categoryId], references: [id])
+  quantity    Int
+  unitCost    Decimal        @db.Decimal(12, 2)
+  currency    String         @default("GHS")
+}
+
+// ==========================================================
+// MAINTENANCE / INCIDENTS / DISPOSAL
+// ==========================================================
+
+model MaintenanceRecord {
+  id         Int      @id @default(autoincrement())
+  assetId    Int
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  reportedById Int
+  reportedBy User     @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportDate DateTime @default(now())
+
+  issueDescription String
+  priority         RequestPriority @default(MEDIUM)
+
+  vendorId   Int?
+  vendor     Vendor? @relation(fields: [vendorId], references: [id])
+  technician String?
+  diagnosis  String?
+  repairPerformed String?
+  partsReplaced   String?
+  cost       Decimal? @db.Decimal(12, 2)
+  currency   String?  @default("GHS")
+  warrantyClaim Boolean @default(false)
+
+  startDate      DateTime?
+  completionDate DateTime?
+
+  conditionBeforeId Int?
+  conditionBefore   AssetCondition? @relation("ConditionBefore", fields: [conditionBeforeId], references: [id])
+  conditionAfterId  Int?
+  conditionAfter    AssetCondition? @relation("ConditionAfter", fields: [conditionAfterId], references: [id])
+
+  status MaintenanceStatus @default(REPORTED)
+  notes  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+}
+
+enum MaintenanceStatus {
+  REPORTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model AssetIncident {
+  id         Int          @id @default(autoincrement())
+  assetId    Int
+  asset      Asset        @relation(fields: [assetId], references: [id])
+  type       IncidentType
+  reportedById Int
+  reportedBy User         @relation("ReportedBy", fields: [reportedById], references: [id])
+  reportDate DateTime     @default(now())
+
+  locationRoomId Int?
+  locationRoom   Room? @relation(fields: [locationRoomId], references: [id])
+
+  description         String?
+  policeReportNumber  String?
+  investigationStatus IncidentStatus @default(OPEN)
+  resolution          String?
+  recoveredAt         DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId])
+}
+
+enum IncidentType {
+  LOST
+  MISSING
+  STOLEN
+  DAMAGED
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+model Disposal {
+  id       Int      @id @default(autoincrement())
+  assetId  Int      @unique
+  asset    Asset    @relation(fields: [assetId], references: [id])
+
+  reason         String
+  bookValue      Decimal?       @db.Decimal(12, 2)
+  disposalMethod DisposalMethod
+  disposalDate   DateTime       @default(now())
+
+  approvedById       Int
+  approvedBy         User    @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
+  financeApprovedById Int?
+
+  disposalVendorId Int?
+  disposalVendor   Vendor? @relation("DisposalVendor", fields: [disposalVendorId], references: [id])
+
+  proceeds       Decimal? @db.Decimal(12, 2)
+  certificateUrl String?
+
+  createdAt DateTime @default(now())
+}
+
+enum DisposalMethod {
+  SOLD
+  DONATED
+  SCRAPPED
+  RECYCLED
+  OTHER
+}
+
+// ==========================================================
+// STOCKTAKE
+// ==========================================================
+
+model Stocktake {
+  id            Int             @id @default(autoincrement())
+  name          String
+  scopeType     StocktakeScope
+  scopeId       Int?
+  startedById   Int
+  startedBy     User            @relation("StocktakeStartedBy", fields: [startedById], references: [id])
+  startDate     DateTime        @default(now())
+  endDate       DateTime?
+  status        StocktakeStatus @default(PLANNED)
+  createdAt     DateTime        @default(now())
+
+  items StocktakeItem[]
+}
+
+enum StocktakeScope {
+  CAMPUS
+  BUILDING
+  DEPARTMENT
+  ROOM
+  CATEGORY
+  ALL
+}
+
+enum StocktakeStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model StocktakeItem {
+  id            Int             @id @default(autoincrement())
+  stocktakeId   Int
+  stocktake     Stocktake       @relation(fields: [stocktakeId], references: [id])
+  assetId       Int
+  asset         Asset           @relation(fields: [assetId], references: [id])
+  expectedRoomId Int?
+  expectedRoom   Room?          @relation("ExpectedRoom", fields: [expectedRoomId], references: [id])
+  scannedRoomId  Int?
+  scannedRoom    Room?          @relation("ScannedRoom", fields: [scannedRoomId], references: [id])
+  scannedById    Int?
+  scannedBy      User?          @relation("ScannedBy", fields: [scannedById], references: [id])
+  scannedAt      DateTime?
+  result         StocktakeResult @default(PENDING)
+  notes          String?
+
+  @@index([stocktakeId])
+  @@index([assetId])
+}
+
+enum StocktakeResult {
+  PENDING
+  VERIFIED
+  MISSING
+  FOUND_ELSEWHERE
+  WRONG_LOCATION
+  WRONG_CUSTODIAN
+  DAMAGED
+  DUPLICATE
+  UNREGISTERED
+}
+
+// ==========================================================
+// HISTORY, AUDIT, NOTIFICATIONS, ATTACHMENTS, SETTINGS
+// ==========================================================
+
+model AssetHistory {
+  id        Int      @id @default(autoincrement())
+  assetId   Int
+  asset     Asset    @relation(fields: [assetId], references: [id])
+  eventType String   // REGISTERED, ISSUED, TRANSFERRED, RETURNED, MAINTENANCE, INCIDENT, DISPOSED, STATUS_CHANGE, ...
+  eventDate DateTime @default(now())
+  actorId   Int?
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([assetId])
+}
+
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  userId        Int?
+  user          User?    @relation(fields: [userId], references: [id])
+  action        String   // CREATE, UPDATE, DELETE, APPROVE, REJECT, ISSUE, RETURN, LOGIN, ...
+  module        String
+  recordType    String
+  recordId      Int?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([recordType, recordId])
+}
+
+model NotificationTemplate {
+  id           Int                 @id @default(autoincrement())
+  eventKey     String              @unique // REQUEST_APPROVED, LOAN_OVERDUE, WARRANTY_EXPIRING, ...
+  subject      String
+  bodyTemplate String
+  channel      NotificationChannel @default(EMAIL)
+}
+
+model Notification {
+  id          Int                 @id @default(autoincrement())
+  userId      Int
+  user        User                @relation(fields: [userId], references: [id])
+  templateKey String
+  title       String
+  body        String
+  channel     NotificationChannel @default(IN_APP)
+  isRead      Boolean             @default(false)
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([userId, isRead])
+}
+
+enum NotificationChannel {
+  EMAIL
+  IN_APP
+  SMS
+}
+
+model Attachment {
+  id           Int      @id @default(autoincrement())
+  entityType   String   // ASSET, REQUEST, PURCHASE_ORDER, MAINTENANCE, DISPOSAL, INCIDENT
+  entityId     Int
+  fileName     String
+  fileUrl      String
+  mimeType     String?
+  sizeBytes    Int?
+  uploadedById Int
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([entityType, entityId])
+}
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model NumberSequence {
+  id         Int     @id @default(autoincrement())
+  prefix     String  // REQ, AST, PO, LOAN, TRF, MNT, STK
+  year       Int?
+  lastNumber Int     @default(0)
+
+  @@unique([prefix, year])
+}
