@@ -14,6 +14,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   hasPermission: (code: string) => boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -41,8 +42,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (code: string) => user?.permissions.includes(code) ?? false;
 
+  // Re-fetch the basic identity after a profile edit so the sidebar reflects
+  // the new name immediately (keeps the JWT-derived permissions as-is).
+  const refreshUser = async () => {
+    const { data } = await api.get('/auth/me');
+    const next: AuthUser = {
+      id: data.id,
+      fullName: data.fullName,
+      email: data.email,
+      departmentId: data.departmentId,
+      permissions: user?.permissions ?? [],
+    };
+    localStorage.setItem('sarms_user', JSON.stringify(next));
+    setUser(next);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, logout, hasPermission, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -100,6 +100,12 @@ export class AssetsService {
         { name: { contains: query.search, mode: 'insensitive' } },
         { assetTag: { contains: query.search, mode: 'insensitive' } },
         { serialNumber: { contains: query.search, mode: 'insensitive' } },
+        // Allow reading a QR/barcode by pasting its encoded value (the QR token
+        // or the human-readable tag) straight into the search box.
+        { qrToken: { contains: query.search, mode: 'insensitive' } },
+        { serviceTag: { contains: query.search, mode: 'insensitive' } },
+        { model: { contains: query.search, mode: 'insensitive' } },
+        { manufacturer: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 

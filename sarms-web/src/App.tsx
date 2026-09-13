@@ -19,6 +19,8 @@ import { GlobalSearch } from './pages/GlobalSearch';
 import { Clearance } from './pages/Clearance';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
+import { ScanAsset } from './pages/ScanAsset';
+import { Profile } from './pages/Profile';
 
 export default function App() {
   return (
@@ -27,6 +29,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/scan/:qrToken" element={<ScanAsset />} />
             <Route element={<Layout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/assets" element={<AssetsList />} />
@@ -42,6 +45,7 @@ export default function App() {
               <Route path="/stocktake" element={<Stocktake />} />
               <Route path="/search" element={<GlobalSearch />} />
               <Route path="/clearance" element={<Clearance />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

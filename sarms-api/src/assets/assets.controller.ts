@@ -40,16 +40,16 @@ export class AssetsController {
     return this.assetsService.findAll(query);
   }
 
-  @Get(':id')
-  @RequirePermission('assets.view')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.assetsService.findOne(id);
-  }
-
   @Get('scan/:qrToken')
   @RequirePermission('assets.view')
   scan(@Param('qrToken') qrToken: string) {
     return this.assetsService.findByQrToken(qrToken);
+  }
+
+  @Get(':id')
+  @RequirePermission('assets.view')
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.assetsService.findOne(id);
   }
 
   @Patch(':id/status/:statusCode')

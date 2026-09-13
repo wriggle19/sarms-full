@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
 import { FormEvent, useState } from 'react';
 import {
   LayoutDashboard, Boxes, ClipboardList, CheckSquare, PackageCheck,
@@ -44,10 +44,10 @@ export function Layout() {
   return (
     <div className="min-h-screen flex">
       <aside className="w-60 shrink-0 bg-primary text-white flex flex-col">
-        <div className="h-16 flex items-center px-6 font-semibold text-lg tracking-tight border-b border-white/10">
+        <Link to="/" title="Go to dashboard" className="h-16 flex items-center px-6 font-semibold text-lg tracking-tight border-b border-white/10 hover:bg-white/5 transition-colors">
           <span className="w-7 h-7 rounded bg-white/15 flex items-center justify-center text-sm mr-2">S</span>
           SARMS
-        </div>
+        </Link>
         <nav className="flex-1 py-3 overflow-y-auto">
           {visibleNav.map((item) => (
             <NavLink
@@ -66,7 +66,7 @@ export function Layout() {
           ))}
         </nav>
         <div className="p-4 border-t border-white/10 text-sm">
-          <div className="flex items-center gap-2 mb-3">
+          <Link to="/profile" title="Open my profile" className="flex items-center gap-2 mb-3 rounded p-1 -m-1 hover:bg-white/5 transition-colors">
             <span className="w-8 h-8 rounded-full bg-tertiary flex items-center justify-center text-xs font-semibold shrink-0">
               {initials}
             </span>
@@ -74,7 +74,7 @@ export function Layout() {
               <div className="font-medium truncate">{user?.fullName}</div>
               <div className="text-white/60 truncate text-xs">{user?.email}</div>
             </div>
-          </div>
+          </Link>
           <button onClick={logout} className="text-white/70 hover:text-white text-xs underline">
             Sign out
           </button>

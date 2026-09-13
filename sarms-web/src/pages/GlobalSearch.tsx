@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { Search as SearchIcon } from 'lucide-react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { Search as SearchIcon, ScanLine } from 'lucide-react';
 import { api } from '../lib/api';
 import { StatusBadge } from '../components/StatusBadge';
 
@@ -12,6 +12,30 @@ export function GlobalSearch() {
   const [users, setUsers] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [scanCode, setScanCode] = useState('');
+  const [scanError, setScanError] = useState<string | null>(null);
+
+  // Read a QR/barcode immediately: extract the token (handles a bare token or a
+  // pasted full /scan/{token} URL) and open the asset's detail page.
+  const readCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = scanCode.trim();
+    if (!raw) return;
+    setScanError(null);
+    const token = raw.split('/scan/').pop() ?? raw;
+    try {
+      const res = await api.get(`/assets/scan/${encodeURIComponent(token)}`);
+      navigate(`/assets/${res.data.id}`);
+    } catch (err: any) {
+      if (err.response?.status === 403) {
+        setScanError('You do not have permission to view asset details.');
+      } else {
+        // Not a QR token - treat it as a normal search term (also matches tags/serial).
+        setParams({ q: raw });
+      }
+    }
+  };
 
   const runSearch = (q: string) => {
     if (!q.trim()) {
@@ -50,6 +74,28 @@ export function GlobalSearch() {
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <h1 className="text-2xl font-semibold text-text-primary">Search</h1>
+
+      <div className="bg-white rounded-lg border border-border shadow-card p-5">
+        <div className="flex items-center gap-2 text-sm font-medium text-text-primary">
+          <ScanLine size={16} className="text-primary" />
+          Scan a code
+        </div>
+        <p className="text-xs text-text-secondary mt-1">
+          Read a QR or barcode with a scanner, or type/paste the code (QR token, full scan URL, asset tag, or serial) and press Enter — the asset's details open immediately.
+        </p>
+        <form onSubmit={readCode} className="flex gap-3 mt-3">
+          <input
+            value={scanCode}
+            onChange={(e) => setScanCode(e.target.value)}
+            placeholder="Scan / type / paste a QR or barcode value…"
+            className="h-11 rounded border border-border px-3 text-sm w-full focus:outline-none focus:ring-2 focus:ring-tertiary"
+          />
+          <button type="submit" className="px-4 h-11 rounded bg-primary text-white text-sm font-medium hover:bg-primary-hover shrink-0">
+            Read code
+          </button>
+        </form>
+        {scanError && <div className="mt-2 rounded bg-critical-surface text-critical text-sm px-3 py-2">{scanError}</div>}
+      </div>
 
       <form onSubmit={submit} className="relative">
         <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
