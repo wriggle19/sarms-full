@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Boxes, ClipboardList, CheckSquare, PackageCheck,
   Wrench, AlertTriangle, Trash2, Truck, ScanLine, BarChart3, UserMinus,
   Search, Bell, CalendarClock, ScrollText, Settings as SettingsIcon,
+  Layers, FileUp,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
@@ -21,7 +22,10 @@ const NAV_ITEMS = [
   { to: '/procurement', label: 'Procurement', icon: Truck },
   { to: '/stocktake', label: 'Stocktake', icon: ScanLine },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/calendar', label: 'Calendar', icon: CalendarClock },
   { to: '/clearance', label: 'Clearance', icon: UserMinus },
+  { to: '/bulk', label: 'Bulk Ops', icon: Layers, admin: true },
+  { to: '/imports', label: 'Import Assets', icon: FileUp, admin: true },
   { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, admin: true },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, admin: true },
 ];

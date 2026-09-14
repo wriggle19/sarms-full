@@ -53,6 +53,8 @@ model User {
   attachmentsUploaded  Attachment[]
   assetsCreated        Asset[]             @relation("AssetCreatedBy")
   assetsUpdated        Asset[]             @relation("AssetUpdatedBy")
+  reservationsMade     AssetReservation[]  @relation("ReservationRequester")
+  reservationsApproved AssetReservation[]  @relation("ReservationApprovedBy")
 
   @@index([departmentId])
   @@index([supervisorId])
@@ -346,6 +348,7 @@ model Asset {
   disposal          Disposal?
   stocktakeItems    StocktakeItem[]
   history           AssetHistory[]
+  reservations      AssetReservation[]
 
   @@index([categoryId])
   @@index([statusId])
@@ -932,6 +935,10 @@ model AssetReservation {
   issuedAssignmentId Int?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+
+  asset           Asset?            @relation(fields: [assetId], references: [id])
+  requester       User              @relation("ReservationRequester", fields: [reservedById], references: [id])
+  approvedBy      User?             @relation("ReservationApprovedBy", fields: [approvedById], references: [id])
 
   @@index([assetId])
   @@index([reservedById])

@@ -23,6 +23,10 @@ import { ScanAsset } from './pages/ScanAsset';
 import { Profile } from './pages/Profile';
 import { AuditLogs } from './pages/AuditLogs';
 import { Reservations } from './pages/Reservations';
+import { Calendar } from './pages/Calendar';
+import { Imports } from './pages/Imports';
+import { Bulk } from './pages/Bulk';
+import { ResetPassword } from './pages/ResetPassword';
 
 export default function App() {
   return (
@@ -30,6 +34,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/scan/:qrToken" element={<ScanAsset />} />
             <Route element={<Layout />}>
@@ -50,6 +55,9 @@ export default function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/reservations" element={<Reservations />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/imports" element={<Imports />} />
+              <Route path="/bulk" element={<Bulk />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/settings" element={<Settings />} />
             </Route>

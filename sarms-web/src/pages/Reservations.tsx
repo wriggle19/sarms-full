@@ -2,19 +2,11 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
-interface Reservation {
-  id: number;
-  asset: { id: number; assetTag: string; name: string };
-  requester: { id: number; fullName: string };
-  startTime: string;
-  endTime: string;
-  purpose: string;
-  status: string;
-}
-
 export function Reservations() {
   const { hasPermission } = useAuth();
-  const [items, setItems] = useState<Reservation[]>([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [tab, setTab] = useState<'mine' | 'all'>('mine');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -24,13 +16,20 @@ export function Reservations() {
   const [endTime, setEndTime] = useState('');
   const [purpose, setPurpose] = useState('');
 
+  const assetById = new Map<number, any>(assets.map((a) => [a.id, a]));
+  const userById = new Map<number, any>(users.map((u) => [u.id, u]));
+
   const load = () => {
     api
       .get(`/reservations${tab === 'mine' ? '/mine' : ''}`)
-      .then((r) => setItems(r.data.items ?? r.data))
+      .then((r) => setItems(Array.isArray(r.data) ? r.data : r.data.items ?? []))
       .catch(() => setError('Failed to load reservations'));
   };
-  useEffect(load, [tab]);
+  useEffect(() => {
+    api.get('/assets', { params: { pageSize: 100 } }).then((r) => setAssets(r.data.items ?? [])).catch(() => {});
+    api.get('/users').then((r) => setUsers(r.data)).catch(() => {});
+    load();
+  }, [tab]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,12 +38,12 @@ export function Reservations() {
     try {
       const { data } = await api.post('/reservations', {
         assetId: Number(assetId),
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
+        startDateTime: new Date(startTime).toISOString(),
+        endDateTime: new Date(endTime).toISOString(),
         purpose,
       });
       if (data.conflict) {
-        setError(`That asset is already reserved ${data.conflict.startTime} → ${data.conflict.endTime}`);
+        setError(`That asset is already reserved during the selected slot.`);
       } else {
         setMsg('Reservation requested — pending approval.');
         setAssetId('');
@@ -61,11 +60,18 @@ export function Reservations() {
     setMsg('');
     setError('');
     try {
-      await api.post(`/reservations/${id}/${action}`);
-      setMsg(`Reservation ${action}d.`);
+      if (action === 'complete') {
+        const res = await api.post(`/reservations/${id}/fulfill`, { assetId: Number(assetId) || undefined });
+        setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: res.data?.status ?? 'FULFILLED' } : r)));
+      } else {
+        const decision = action.toUpperCase() as 'APPROVED' | 'REJECTED' | 'CANCELLED';
+        const res = await api.post(`/reservations/${id}/decide`, { decision });
+        setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: res.data?.status ?? decision } : r)));
+      }
+      setMsg(`Reservation updated.`);
       load();
     } catch (err: any) {
-      setError(err.response?.data?.message ?? `Failed to ${action} reservation`);
+      setError(err.response?.data?.message ?? 'Action failed');
     }
   };
 

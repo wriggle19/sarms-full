@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import { api } from '../lib/api';
 
 const COLORS = ['#1E3A8A', '#1D4ED8', '#3B82F6', '#93C5FD', '#059669', '#D97706', '#DC2626'];
@@ -29,6 +30,22 @@ export function Reports() {
   const c = summary.countsByStatus;
   const maxCategory = Math.max(1, ...categoryBreakdown.map((c2) => c2.count));
 
+  const downloadCsv = async (url: string, filename: string) => {
+    try {
+      const res = await api.get(url, { responseType: 'blob' });
+      const href = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(href);
+    } catch { alert('Could not download report.'); }
+  };
+
+  const EXPORTS = [
+    { label: 'Asset Register', url: '/reports/asset-register.csv', file: 'asset-register.csv' },
+    { label: 'Overdue Returns', url: '/reports/overdue.csv', file: 'overdue.csv' },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -36,6 +53,24 @@ export function Reports() {
         <p className="text-text-secondary text-sm mt-1">
           District capital valuation, lifecycle utilization, and departmental allocation.
         </p>
+      </div>
+
+      <div className="bg-white rounded-lg border border-border shadow-card p-5 flex items-center justify-between gap-4">
+        <div>
+          <div className="font-medium text-text-primary">Export CSV reports</div>
+          <div className="text-sm text-text-secondary mt-0.5">Downloaded reports respect your permissions.</div>
+        </div>
+        <div className="flex gap-2">
+          {EXPORTS.map((ex) => (
+            <button
+              key={ex.url}
+              onClick={() => downloadCsv(ex.url, ex.file)}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded border border-border text-sm font-medium hover:bg-canvas"
+            >
+              <Download size={15} /> {ex.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

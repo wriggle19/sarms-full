@@ -6,6 +6,8 @@ import { LocationsTab } from '../settings/LocationsTab';
 import { AcademicYearsTab } from '../settings/AcademicYearsTab';
 import { CatalogTab } from '../settings/CatalogTab';
 import { RolesTab } from '../settings/RolesTab';
+import { NotificationTemplatesTab } from '../settings/NotificationTemplatesTab';
+import { WorkflowsTab } from '../settings/WorkflowsTab';
 
 const TABS = [
   { key: 'users', label: 'Users', perm: 'users.view' },
@@ -14,6 +16,8 @@ const TABS = [
   { key: 'academic-years', label: 'Academic Years', perm: 'academic-years.manage' },
   { key: 'catalog', label: 'Asset Catalog', perm: 'catalog.manage' },
   { key: 'roles', label: 'Roles', perm: 'roles.manage' },
+  { key: 'notification-templates', label: 'Notification Templates', perm: 'users.view' },
+  { key: 'workflows', label: 'Approval Workflows', perm: 'workflows.manage' },
 ] as const;
 
 export function Settings() {
@@ -48,6 +52,8 @@ export function Settings() {
       {user && active === 'academic-years' && hasPermission('academic-years.manage') && <AcademicYearsTab />}
       {user && active === 'catalog' && hasPermission('catalog.manage') && <CatalogTab />}
       {user && active === 'roles' && hasPermission('roles.manage') && <RolesTab />}
+      {user && active === 'notification-templates' && hasPermission('users.view') && <NotificationTemplatesTab />}
+      {user && active === 'workflows' && hasPermission('workflows.manage') && <WorkflowsTab />}
     </div>
   );
 }

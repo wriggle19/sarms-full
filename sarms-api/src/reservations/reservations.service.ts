@@ -49,14 +49,18 @@ export class ReservationsService {
 
   listMine(userId: number) {
     return (this.prisma as any).assetReservation.findMany({
-      where: { reservedById: userId }, orderBy: { startDateTime: 'desc' },
+      where: { reservedById: userId },
+      orderBy: { startDateTime: 'desc' },
+      include: { asset: true, requester: true },
     });
   }
 
   listAll(status?: string) {
     return (this.prisma as any).assetReservation.findMany({
       where: status ? { status: status as any } : undefined,
-      orderBy: { startDateTime: 'desc' }, take: 200,
+      orderBy: { startDateTime: 'desc' },
+      take: 200,
+      include: { asset: true, requester: true },
     });
   }
 }
