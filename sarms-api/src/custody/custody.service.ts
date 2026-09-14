@@ -73,6 +73,7 @@ export class CustodyService {
         where: { id: dto.assetId },
         data: {
           currentRoomId: dto.roomId ?? asset.currentRoomId,
+          currentCustodianId: dto.custodianUserId ?? asset.currentCustodianId,
           conditionId: conditionAtIssue.id,
         },
       });
@@ -146,7 +147,7 @@ export class CustodyService {
       }),
       this.prisma.asset.update({
         where: { id: assignment.assetId },
-        data: { conditionId: conditionAtReturn.id },
+        data: { conditionId: conditionAtReturn.id, currentCustodianId: null },
       }),
       this.prisma.assetHistory.create({
         data: {
@@ -210,6 +211,7 @@ export class CustodyService {
         data: {
           currentRoomId: dto.toRoomId ?? asset.currentRoomId,
           responsibleDepartmentId: dto.toDepartmentId ?? asset.responsibleDepartmentId,
+          currentCustodianId: dto.toCustodianId ?? null,
         },
       });
 

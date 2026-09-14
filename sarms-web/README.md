@@ -22,7 +22,7 @@ Styled to match the Stitch design tokens (navy/institutional palette).
 3. `cp .env.example .env`
 4. `npm run dev`
 5. Open `http://localhost:5173`, log in with the seeded admin account
-   (`admin@sarms.local` / `ChangeMe123!`).
+   (`admin@sarms.local` / placeholder seed password - change immediately).
 
 ## Run it with Docker (alongside the backend's docker-compose)
 

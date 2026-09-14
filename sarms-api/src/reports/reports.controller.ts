@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionGuard } from '../common/guards/permission.guard';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
+import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { ReportsService } from './reports.service';
 
 function toCsv(rows: Record<string, any>[]): string {
@@ -36,8 +37,14 @@ export class ReportsController {
 
   @Get('asset-register.csv')
   @RequirePermission('assets.view')
-  async assetRegisterCsv(@Res() res: Response, @Query('departmentId') departmentId?: string) {
+  async assetRegisterCsv(
+    @Res() res: Response,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('departmentId') departmentId?: string,
+  ) {
     const assets = await this.reports.assetRegister({ departmentId: departmentId ? Number(departmentId) : undefined });
+    // Financial columns are stripped for users without finance.view (§1.6 Gap 5).
+    const canSeeFinance = user.permissions.includes('finance.view');
     const csv = toCsv(
       assets.map((a: any) => ({
         assetTag: a.assetTag,
@@ -48,8 +55,7 @@ export class ReportsController {
         condition: a.condition?.code,
         department: a.responsibleDepartment?.name,
         room: a.currentRoom?.name,
-        originalCost: a.originalCost,
-        currency: a.currency,
+        ...(canSeeFinance ? { originalCost: a.originalCost, currency: a.currency } : {}),
       })),
     );
     res.setHeader('Content-Type', 'text/csv');
@@ -91,7 +97,8 @@ export class ReportsController {
   }
 
   @Get('by-department')
-  @RequirePermission('assets.view')
+  // Aggregates acquisition value (originalCost) — finance-only (§1.6 Gap 5).
+  @RequirePermission('finance.view')
   byDepartment() {
     return this.reports.byDepartment();
   }

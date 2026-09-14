@@ -17,7 +17,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'change-me-in-env'),
+        // No insecure fallback: fail loudly. main.ts already refuses to start
+        // in production without JWT_SECRET; here we surface a clear error for
+        // any environment instead of silently using a known-public secret.
+        secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: { expiresIn: '8h' },
       }),
     }),

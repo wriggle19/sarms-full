@@ -31,13 +31,13 @@ then restore DB from the pre-phase backup (pg_dump taken before phase work).
 
 ## DB connection (dev machine)
 - Postgres 16 (Homebrew), localhost:5432, db `sarms`, role `sarms/sarms`
-- API .env: DATABASE_URL=postgresql://sarms:sarms@localhost:5432/sarms, JWT_SECRET, PORT=3000
+- API .env: DATABASE_URL=postgresql://<user>:<password>@localhost:5432/sarms, JWT_SECRET, PORT=3000
 - Web .env: VITE_API_URL=http://localhost:3000
 
 ## Live services at baseline
 - API: http://localhost:3000 (docs /api/docs → 200), pid recorded at time ~92531 lineage
 - Web: http://localhost:5173 (200)
-- Logins (all password `ChangeMe123!`): admin@sarms.local / teacher@sarms.local / officer@sarms.local
+- Logins (all seeded with a placeholder password - change immediately on first login): admin@sarms.local / teacher@sarms.local / officer@sarms.local
 
 ## Working functionalities at baseline (verified live, DO NOT REGRESS)
 1. Auth: bcrypt(12) login → JWT (8h, permissions embedded); GET/PATCH /auth/me; POST /auth/me/change-password (current-pw required); activate/deactivate users; lastLoginAt.

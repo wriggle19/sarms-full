@@ -158,7 +158,11 @@ async function main() {
   });
 
   // Admin user
-  const adminPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
+  // Seed password comes from SEED_ADMIN_PASSWORD when set; the documented
+  // default is a placeholder that MUST be changed on first login (§4 of the
+  // completion prompt). Never seed a production database with defaults.
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
+  const adminPasswordHash = await bcrypt.hash(seedPassword, 12);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@sarms.local' },
     update: {},
@@ -180,7 +184,7 @@ async function main() {
   // footprint so you can verify per-role behaviour through the UI:
   //   - teacher@sarms.local  -> Teacher          (requests.create/view, assets.view)
   //   - officer@sarms.local  -> IT Asset Officer (assets.issue/return/transfer, create, ...)
-  const dummyPasswordHash = await bcrypt.hash('ChangeMe123!', 12);
+  const dummyPasswordHash = await bcrypt.hash(seedPassword, 12);
 
   const teacher = await prisma.user.upsert({
     where: { email: 'teacher@sarms.local' },
@@ -292,7 +296,7 @@ async function main() {
   console.log('Seed complete.');
 
   console.log('Seed complete.');
-  console.log(`Log in as admin@sarms.local / ChangeMe123! and change the password immediately.`);
+  console.log(`Log in as admin@sarms.local with the SEED_ADMIN_PASSWORD value (default ChangeMe123!) and change it immediately.`);
   console.log({ itDept, mathDept, campus, building, floor, room, laptopCategory });
 }
 

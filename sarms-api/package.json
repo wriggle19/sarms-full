@@ -10,7 +10,19 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "rootDir": ".",
+    "testRegex": ".spec.ts$",
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json"
+    ]
   },
   "keywords": [],
   "author": "",
@@ -22,6 +34,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.22",
+    "@nestjs/schedule": "^4.1.2",
     "@nestjs/swagger": "^7.4.2",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^5.22.0",
@@ -42,15 +55,19 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
+    "@nestjs/testing": "^10.4.22",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.25",
+    "@types/jest": "^30.0.0",
     "@types/mime-types": "^3.0.1",
     "@types/multer": "^2.2.0",
     "@types/node": "^20.19.43",
     "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "jest": "^30.5.1",
     "prisma": "^5.22.0",
+    "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"

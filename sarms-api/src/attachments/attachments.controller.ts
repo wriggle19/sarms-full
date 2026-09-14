@@ -19,8 +19,12 @@ export class AttachmentsController {
   }
 
   @Get()
-  list(@Query('entityType') entityType: string, @Query('entityId') entityId: string) {
-    return this.service.list(entityType, Number(entityId));
+  list(
+    @Query('entityType') entityType: string,
+    @Query('entityId') entityId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.list(entityType, Number(entityId), user);
   }
 
   @Post('upload')
@@ -42,13 +46,17 @@ export class AttachmentsController {
 
   @Delete(':id')
   @Audit({ action: 'DELETE', module: 'attachments', recordType: 'Attachment' })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.service.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    return this.service.remove(id, user);
   }
 
   @Patch(':id')
   @Audit({ action: 'UPDATE', module: 'attachments', recordType: 'Attachment' })
-  rename(@Param('id', ParseIntPipe) id: number, @Body() body: { fileName: string }) {
-    return this.service.rename(id, body.fileName);
+  rename(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { fileName: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.rename(id, body.fileName, user);
   }
 }

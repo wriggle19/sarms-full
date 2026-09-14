@@ -24,7 +24,7 @@ incidents (lost/missing/stolen/damaged), disposal, and stocktake
 4. `createdb sarms`
 5. `npx prisma generate && npx prisma migrate dev --name init`
 6. `npm run seed` — prints the seeded admin login (`admin@sarms.local` /
-   `ChangeMe123!`). **Change that password immediately.**
+   a placeholder password (see seed output)). **Change that password immediately.**
 7. `npm run start:dev`
 8. `http://localhost:3000/api/docs` — full interactive endpoint list (Swagger).
 

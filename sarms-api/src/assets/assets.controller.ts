@@ -36,20 +36,23 @@ export class AssetsController {
 
   @Get()
   @RequirePermission('assets.view')
-  findAll(@Query() query: QueryAssetsDto) {
-    return this.assetsService.findAll(query);
+  async findAll(@Query() query: QueryAssetsDto, @CurrentUser() user: AuthenticatedUser) {
+    const result = await this.assetsService.findAll(query);
+    return { ...result, items: result.items.map((a) => this.assetsService.sanitizeForUser(a, user)) };
   }
 
   @Get('scan/:qrToken')
   @RequirePermission('assets.view')
-  scan(@Param('qrToken') qrToken: string) {
-    return this.assetsService.findByQrToken(qrToken);
+  async scan(@Param('qrToken') qrToken: string, @CurrentUser() user: AuthenticatedUser) {
+    const asset = await this.assetsService.findByQrToken(qrToken);
+    return this.assetsService.sanitizeForUser(asset, user);
   }
 
   @Get(':id')
   @RequirePermission('assets.view')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.assetsService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthenticatedUser) {
+    const asset = await this.assetsService.findOne(id);
+    return this.assetsService.sanitizeForUser(asset, user);
   }
 
   @Patch(':id/status/:statusCode')

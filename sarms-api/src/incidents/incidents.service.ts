@@ -70,6 +70,15 @@ export class IncidentsService {
       await this.assetsService.transitionStatus(incident.assetId, 'AVAILABLE', actorId, 'Recovered');
     }
 
+    await this.prisma.assetHistory.create({
+      data: {
+        assetId: incident.assetId,
+        eventType: 'INCIDENT_RESOLVED',
+        actorId,
+        description: `Incident resolved: ${dto.resolution ?? 'no details'}${dto.recovered ? ' — asset recovered' : ''}`,
+      },
+    });
+
     return this.findOne(id);
   }
 }

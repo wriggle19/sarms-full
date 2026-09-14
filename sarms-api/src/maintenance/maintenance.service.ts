@@ -103,6 +103,15 @@ export class MaintenanceService {
       repaired ? 'Maintenance completed' : 'Beyond repair - retired',
     );
 
+    await this.prisma.assetHistory.create({
+      data: {
+        assetId: record.assetId,
+        eventType: 'MAINTENANCE_COMPLETED',
+        actorId,
+        description: `Maintenance completed. Condition after: ${dto.conditionAfterCode}. ${dto.repairPerformed ?? ''}`.trim(),
+      },
+    });
+
     return this.findOne(id);
   }
 }

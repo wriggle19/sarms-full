@@ -59,6 +59,15 @@ export class DisposalService {
 
     await this.assetsService.transitionStatus(dto.assetId, 'DISPOSED', approvedById, `Disposed: ${dto.disposalMethod}`);
 
+    await this.prisma.assetHistory.create({
+      data: {
+        assetId: dto.assetId,
+        eventType: 'DISPOSED',
+        actorId: approvedById,
+        description: `Disposed via ${dto.disposalMethod}. Reason: ${dto.reason}`,
+      },
+    });
+
     return disposal;
   }
 

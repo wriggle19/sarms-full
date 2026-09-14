@@ -59,8 +59,30 @@ export class AttachmentsService {
     }
   }
 
-  list(entityType: string, entityId: number) {
+  /** Map entityType -> permission required to see/manage its attachments. */
+  private modulePermission(entityType: string): string {
+    const modulePerm: Record<string, string> = {
+      ASSET: 'assets.view',
+      REQUEST: 'requests.view',
+      PURCHASE_ORDER: 'procurement.manage',
+      MAINTENANCE: 'maintenance.manage',
+      DISPOSAL: 'disposal.approve',
+      INCIDENT: 'assets.view',
+      VENDOR: 'procurement.manage',
+    };
+    return modulePerm[entityType];
+  }
+
+  private assertCanAccess(entityType: string, user: AuthenticatedUser) {
+    const needed = this.modulePermission(entityType);
+    if (needed && !user.permissions.includes(needed) && !user.permissions.includes('audit.view')) {
+      throw new ForbiddenException('You do not have access to documents for this module');
+    }
+  }
+
+  list(entityType: string, entityId: number, user: AuthenticatedUser) {
     this.assertEntity(entityType, entityId);
+    this.assertCanAccess(entityType, user);
     return this.prisma.attachment.findMany({
       where: { entityType, entityId },
       include: { uploadedBy: { select: { id: true, fullName: true } } },
@@ -109,16 +131,7 @@ export class AttachmentsService {
       throw new NotFoundException('Stored file is missing on disk');
     }
     // Permission check: requester must hold the view permission of the owning module.
-    const modulePerm: Record<string, string> = {
-      ASSET: 'assets.view',
-      REQUEST: 'requests.view',
-      PURCHASE_ORDER: 'procurement.manage',
-      MAINTENANCE: 'maintenance.manage',
-      DISPOSAL: 'disposal.approve',
-      INCIDENT: 'assets.view',
-      VENDOR: 'procurement.manage',
-    };
-    const needed = modulePerm[row.entityType];
+    const needed = this.modulePermission(row.entityType);
     if (needed && !user.permissions.includes(needed) && !user.permissions.includes('audit.view')) {
       throw new ForbiddenException('You do not have access to this document');
     }
@@ -129,15 +142,18 @@ export class AttachmentsService {
     });
   }
 
-  async remove(id: number) {
-    await this.prisma.attachment.findUnique({ where: { id } }).then((r) => {
-      if (!r) throw new NotFoundException(`Attachment ${id} not found`);
-    });
+  async remove(id: number, user: AuthenticatedUser) {
+    const row = await this.prisma.attachment.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException(`Attachment ${id} not found`);
+    this.assertCanAccess(row.entityType, user);
     return this.prisma.attachment.delete({ where: { id } });
   }
 
-  async rename(id: number, fileName: string) {
+  async rename(id: number, fileName: string, user: AuthenticatedUser) {
     if (!fileName || fileName.length > 200) throw new BadRequestException('Invalid fileName');
+    const row = await this.prisma.attachment.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException(`Attachment ${id} not found`);
+    this.assertCanAccess(row.entityType, user);
     return this.prisma.attachment.update({ where: { id }, data: { fileName } });
   }
 }

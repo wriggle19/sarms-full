@@ -1,0 +1,80 @@
+
+# ============================================================
+# SARMS — Docker Compose (production-oriented)
+#
+# Before first run:
+#   cp .env.docker.example .env.docker
+#   Edit .env.docker with real secrets.
+#   docker compose --env-file .env.docker up -d --build
+# ============================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sarms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:-sarms}
+    volumes:
+      - sarms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sarms}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./sarms-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-sarms}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-sarms}"
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      PORT: 3000
+      NODE_ENV: production
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      UPLOAD_DIR: /app/uploads
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-SARMS <no-reply@school.org>}
+      EXPOSE_RESET_TOKEN: "false"
+    volumes:
+      - sarms_attachments:/app/uploads
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  web:
+    build:
+      context: ./sarms-web
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - web
+    ports:
+      - "80:80"
+      # - "443:443"  # uncomment after adding TLS certs
+    volumes:
+      - ./sarms-api/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+volumes:
+  sarms_postgres_data:
+  sarms_attachments:

@@ -24,8 +24,8 @@ services:
       - postgres
       - redis
     environment:
-      DATABASE_URL: "postgresql://sarms:sarms@postgres:5432/sarms"
-      JWT_SECRET: "change-this-to-a-long-random-string"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-sarms}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-sarms}"
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set}"
       PORT: 3000
     volumes:
       - sarms_attachments:/app/storage/attachments

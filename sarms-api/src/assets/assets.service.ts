@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { NumberSequenceService } from '../common/utils/number-sequence.service';
 import { CreateAssetDto } from './dto/create-asset.dto';
 import { QueryAssetsDto } from './dto/query-assets.dto';
@@ -185,6 +186,29 @@ export class AssetsService {
       throw new NotFoundException('Asset not found for this QR code');
     }
     return this.findOne(asset.id);
+  }
+
+  /**
+   * Financial fields (§1.6 Gap 5) are only visible to users holding
+   * finance.view. Everything else in the asset payload is untouched.
+   */
+  private static FINANCE_FIELDS = [
+    'originalCost',
+    'currency',
+    'fundingSource',
+    'projectCode',
+    'assetClass',
+    'usefulLifeYears',
+    'salvageValue',
+  ];
+
+  sanitizeForUser<T extends Record<string, any>>(asset: T, user: AuthenticatedUser): T {
+    if (user.permissions.includes('finance.view')) return asset;
+    const clone: Record<string, any> = { ...asset };
+    for (const f of AssetsService.FINANCE_FIELDS) {
+      clone[f] = null;
+    }
+    return clone as T;
   }
 
   /**
