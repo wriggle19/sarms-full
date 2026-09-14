@@ -19,6 +19,15 @@ export class NotificationsService {
     });
   }
 
+  /** Broadcast one notification to many users (e.g. every approver for a step). */
+  async notifyMany(userIds: number[], templateKey: string, title: string, body: string) {
+    const unique = Array.from(new Set(userIds.filter((id) => id > 0)));
+    if (unique.length === 0) return;
+    await this.prisma.notification.createMany({
+      data: unique.map((userId) => ({ userId, templateKey, title, body, channel: 'IN_APP' as const })),
+    });
+  }
+
   findForUser(userId: number) {
     return this.prisma.notification.findMany({
       where: { userId },
@@ -29,5 +38,12 @@ export class NotificationsService {
 
   markRead(id: number) {
     return this.prisma.notification.update({ where: { id }, data: { isRead: true } });
+  }
+
+  markAllRead(userId: number) {
+    return this.prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
   }
 }

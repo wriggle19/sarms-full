@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { DecideDto } from './dto/decide.dto';
 
@@ -11,7 +12,10 @@ import { DecideDto } from './dto/decide.dto';
  */
 @Injectable()
 export class ApprovalsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   createWorkflow(dto: CreateWorkflowDto) {
     return this.prisma.approvalWorkflow.create({
@@ -130,7 +134,11 @@ export class ApprovalsService {
       data: { requestId, stepId: step.id, approverId, decision: dto.decision, comment: dto.comment },
     });
 
+    const requester = request.requesterId;
+    const requestLabel = request.requestNumber ?? `#${requestId}`;
+
     if (dto.decision === 'REJECTED') {
+      await this.notifications.notify(requester, 'REQUEST_REJECTED', `Request ${requestLabel} rejected`, dto.comment ?? 'Your request was not approved.');
       return this.prisma.assetRequest.update({
         where: { id: requestId },
         data: { status: 'REJECTED', currentApprovalStepId: null },
@@ -138,6 +146,7 @@ export class ApprovalsService {
     }
 
     if (dto.decision === 'CHANGES_REQUESTED') {
+      await this.notifications.notify(requester, 'REQUEST_CHANGES_REQUESTED', `Request ${requestLabel} needs changes`, dto.comment ?? 'An approver requested changes to your request.');
       return this.prisma.assetRequest.update({
         where: { id: requestId },
         data: { status: 'CHANGES_REQUESTED' },
@@ -148,6 +157,13 @@ export class ApprovalsService {
     const nextStep = await this.prisma.approvalStep.findFirst({
       where: { workflowId: step.workflowId, stepOrder: step.stepOrder + 1 },
     });
+
+    if (nextStep) {
+      const nextApprovers = await this.resolveApproverIds(nextStep, requester);
+      await this.notifications.notifyMany(nextApprovers, 'REQUEST_APPROVAL', `Request ${requestLabel} moved forward`, `A step was completed; it now needs your approval.`);
+    } else {
+      await this.notifications.notify(requester, 'REQUEST_APPROVED', `Request ${requestLabel} approved`, 'All approvals are complete — IT will prepare your equipment.');
+    }
 
     return this.prisma.assetRequest.update({
       where: { id: requestId },

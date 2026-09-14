@@ -16,6 +16,11 @@ export class NotificationsController {
     return this.service.findForUser(user.id);
   }
 
+  @Patch('read-all')
+  markAllRead(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.markAllRead(user.id);
+  }
+
   @Patch(':id/read')
   markRead(@Param('id', ParseIntPipe) id: number) {
     return this.service.markRead(id);

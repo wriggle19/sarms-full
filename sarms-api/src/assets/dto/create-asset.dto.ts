@@ -8,16 +8,31 @@ export class CreateAssetDto {
   @ApiPropertyOptional() @IsOptional() @IsString() model?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() serialNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() serviceTag?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() imei?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() macAddress?: string;
 
+  @ApiPropertyOptional() @IsOptional() @IsDateString() purchaseDate?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() acquisitionDate?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() acquisitionMethod?: string;
   @ApiPropertyOptional() @IsOptional() @IsInt() vendorId?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() purchaseOrderId?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() invoiceNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() warrantyStart?: string;
   @ApiPropertyOptional() @IsOptional() @IsDateString() warrantyEnd?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warrantyProvider?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warrantyType?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warrantyNumber?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() warrantyCoverage?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() originalCost?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() fundingSource?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() projectCode?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() assetClass?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() usefulLifeYears?: number;
+  @ApiPropertyOptional() @IsOptional() @IsNumber() salvageValue?: number;
+  @ApiPropertyOptional() @IsOptional() @IsString() barcodeValue?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() imageUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsInt() parentAssetId?: number;
 
   @ApiProperty() @IsInt() owningDepartmentId: number;
   @ApiProperty() @IsInt() responsibleDepartmentId: number;

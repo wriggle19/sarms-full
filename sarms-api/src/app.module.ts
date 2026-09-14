@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
@@ -26,10 +27,28 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { DisposalModule } from './disposal/disposal.module';
 import { StocktakeModule } from './stocktake/stocktake.module';
+import { ReservationsModule } from './reservations/reservations.module';
+import { CalendarModule } from './calendar/calendar.module';
+import { ReportsModule } from './reports/reports.module';
+import { AuditModule } from './audit/audit.module';
+import { BulkModule } from './bulk/bulk.module';
+import { AttachmentsModule } from './attachments/attachments.module';
+import { ImportsModule } from './imports/imports.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          // Global: 200 requests / 60s per IP. Login has its own tighter
+          // bucket via @Throttle on AuthController (5/min).
+          ttl: config.get<number>('RATE_LIMIT_TTL_MS', 60000),
+          limit: config.get<number>('RATE_LIMIT_MAX', 200),
+        },
+      ],
+    }),
     PrismaModule,
 
     AuthModule,
@@ -53,11 +72,19 @@ import { StocktakeModule } from './stocktake/stocktake.module';
     IncidentsModule,
     DisposalModule,
     StocktakeModule,
+    ReservationsModule,
+    CalendarModule,
+    ReportsModule,
+    AuditModule,
+    BulkModule,
+    AttachmentsModule,
+    ImportsModule,
   ],
   providers: [
     // Global: any controller method tagged with @Audit(...) gets logged
     // automatically. See src/common/interceptors/audit.interceptor.ts.
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

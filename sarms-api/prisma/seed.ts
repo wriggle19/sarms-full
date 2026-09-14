@@ -237,6 +237,60 @@ async function main() {
     });
   }
 
+  // ---- Notification templates (Section 27) ----
+  const TEMPLATES: { eventKey: string; subject: string; bodyTemplate: string }[] = [
+    { eventKey: 'REQUEST_SUBMITTED', subject: 'New equipment request awaiting approval', bodyTemplate: 'A new request has been submitted and requires your review.' },
+    { eventKey: 'REQUEST_APPROVED', subject: 'Your equipment request was approved', bodyTemplate: 'Your request has been approved. IT will contact you about collection.' },
+    { eventKey: 'REQUEST_REJECTED', subject: 'Your equipment request was rejected', bodyTemplate: 'Unfortunately your request was rejected. See the approval comments.' },
+    { eventKey: 'EQUIPMENT_READY', subject: 'Your equipment is ready for pickup', bodyTemplate: 'The equipment you requested is ready for collection from the asset office.' },
+    { eventKey: 'EQUIPMENT_ISSUED', subject: 'Equipment issued to you', bodyTemplate: 'Equipment has been issued to you. Please acknowledge receipt and check the condition.' },
+    { eventKey: 'LOAN_DUE_SOON', subject: 'Equipment return due soon', bodyTemplate: 'Equipment in your custody is due for return soon. Please plan the return.' },
+    { eventKey: 'LOAN_OVERDUE', subject: 'OVERDUE: Equipment return overdue', bodyTemplate: 'Equipment in your custody is now overdue for return. Please return it immediately.' },
+    { eventKey: 'WARRANTY_EXPIRING', subject: 'Warranty expiring soon', bodyTemplate: 'The warranty on one of your department\'s assets expires within 30 days.' },
+    { eventKey: 'STOCKTICK_REMINDER', subject: 'Stocktake reminder', bodyTemplate: 'A stocktake is in progress and items in your area are pending verification.' },
+  ];
+  for (const t of TEMPLATES) {
+    await prisma.notificationTemplate.upsert({
+      where: { eventKey: t.eventKey },
+      update: { subject: t.subject, bodyTemplate: t.bodyTemplate },
+      create: t,
+    });
+  }
+  // Key school calendar dates (Section 45) for the current academic year.
+  let ay = await prisma.academicYear.findFirst({ where: { isCurrent: true } });
+  if (!ay) {
+    // No year flagged current yet - promote the latest one so calendar dates,
+    // default assignment years etc. have something to point at.
+    ay = await prisma.academicYear.findFirst({ orderBy: { id: 'desc' } });
+    if (ay) {
+      await prisma.academicYear.update({ where: { id: ay.id }, data: { isCurrent: true } });
+      console.log(`Marked academic year ${ay.label} as current.`);
+    }
+  }
+  if (ay && (await prisma.schoolCalendarEvent.count()) === 0) {
+    const y = ay.label.match(/(\d{4})\s*\/\s*(\d{4})/);
+    const start = y ? new Date(`${y[1]}-09-01`) : new Date('2026-09-01');
+    const end = y ? new Date(`${y[2]}-06-30`) : new Date('2027-06-30');
+    const d = (base: Date, days: number) => new Date(base.getTime() + days * 86400000);
+    const EVENTS: { eventType: any; title: string; date: Date }[] = [
+      { eventType: 'ACADEMIC_YEAR_START', title: `${ay.label} start`, date: start },
+      { eventType: 'TEACHER_RETURN', title: 'Teachers return', date: d(start, -7) },
+      { eventType: 'STUDENT_RETURN', title: 'Students return', date: d(start, -3) },
+      { eventType: 'EQUIPMENT_RETURN_DEADLINE', title: 'Equipment return deadline', date: d(end, -14) },
+      { eventType: 'STAFF_CLEARANCE_DEADLINE', title: 'Staff clearance deadline', date: d(end, -7) },
+      { eventType: 'ACADEMIC_YEAR_END', title: `${ay.label} end`, date: end },
+      { eventType: 'INVENTORY_DATE', title: 'Annual inventory', date: d(end, 7) },
+    ];
+    for (const e of EVENTS) {
+      await prisma.schoolCalendarEvent.create({
+        data: { academicYearId: ay.id, eventType: e.eventType, title: e.title, eventDate: e.date },
+      });
+    }
+    console.log(`Seeded ${EVENTS.length} calendar events for ${ay.label}.`);
+  }
+
+  console.log('Seed complete.');
+
   console.log('Seed complete.');
   console.log(`Log in as admin@sarms.local / ChangeMe123! and change the password immediately.`);
   console.log({ itDept, mathDept, campus, building, floor, room, laptopCategory });

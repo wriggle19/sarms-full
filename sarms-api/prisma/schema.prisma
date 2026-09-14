@@ -195,6 +195,7 @@ model AcademicYear {
   assets      Asset[]
   assignments AssetAssignment[]
   requests    AssetRequest[]
+  calendarEvents SchoolCalendarEvent[]
 }
 
 // ==========================================================
@@ -278,6 +279,7 @@ model Asset {
   macAddress       String?
 
   acquisitionDate   DateTime?
+  purchaseDate      DateTime?
   acquisitionMethod AcquisitionMethod @default(PURCHASE)
   vendorId          Int?
   vendor            Vendor?           @relation(fields: [vendorId], references: [id])
@@ -287,10 +289,20 @@ model Asset {
 
   warrantyStart DateTime?
   warrantyEnd   DateTime?
+  warrantyProvider String?
+  warrantyType     String?
+  warrantyNumber   String?
+  warrantyCoverage String?
 
   originalCost  Decimal? @db.Decimal(12, 2)
   currency      String?  @default("GHS")
   fundingSource String?
+  projectCode   String?
+  assetClass    String?
+  usefulLifeYears Int?
+  salvageValue  Decimal? @db.Decimal(12, 2)
+  barcodeValue  String?  // printable Code39/128 payload; defaults to assetTag on read if null
+  imageUrl      String?
 
   owningDepartmentId      Int
   owningDepartment        Department @relation("OwningDepartment", fields: [owningDepartmentId], references: [id])
@@ -637,12 +649,17 @@ model MaintenanceRecord {
 
   vendorId   Int?
   vendor     Vendor? @relation(fields: [vendorId], references: [id])
+  technicianName String?
   technician String?
   diagnosis  String?
   repairPerformed String?
+  repairNotes     String?
   partsReplaced   String?
+  partsCost       Decimal? @db.Decimal(12, 2)
+  laborCost       Decimal? @db.Decimal(12, 2)
   cost       Decimal? @db.Decimal(12, 2)
   currency   String?  @default("GHS")
+  invoiceNumber String?
   warrantyClaim Boolean @default(false)
 
   startDate      DateTime?
@@ -887,6 +904,75 @@ model SystemSetting {
   key       String   @unique
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AssetReservation {
+  id              Int               @id @default(autoincrement())
+  assetId         Int?
+  categoryId      Int?
+  reservedById    Int
+  departmentId    Int?
+  roomId          Int?
+  startDateTime   DateTime
+  endDateTime     DateTime
+  purpose         String?
+  status          ReservationStatus @default(PENDING)
+  approvedById    Int?
+  issuedAssignmentId Int?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([assetId])
+  @@index([reservedById])
+  @@index([status])
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  FULFILLED
+  EXPIRED
+}
+
+model SchoolCalendarEvent {
+  id          Int      @id @default(autoincrement())
+  title       String
+  eventType   CalendarEventType
+  eventDate   DateTime
+  endDate     DateTime?
+  description String?
+  academicYearId Int?
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([eventType])
+  @@index([eventDate])
+}
+
+enum CalendarEventType {
+  ACADEMIC_YEAR_START
+  ACADEMIC_YEAR_END
+  TEACHER_RETURN
+  STUDENT_RETURN
+  STAFF_CLEARANCE_DEADLINE
+  EQUIPMENT_RETURN_DEADLINE
+  INVENTORY_DATE
+  HOLIDAY_START
+  HOLIDAY_END
+  OTHER
 }
 
 model NumberSequence {

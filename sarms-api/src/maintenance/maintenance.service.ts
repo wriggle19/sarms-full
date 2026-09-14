@@ -25,6 +25,10 @@ export class MaintenanceService {
         reportedById,
         issueDescription: dto.issueDescription,
         priority: (dto.priority as any) ?? 'MEDIUM',
+        conditionBeforeId: (dto as any).conditionBeforeId,
+        technicianName: (dto as any).technicianName,
+        technician: (dto as any).technicianName,
+        vendorId: (dto as any).vendorId,
       },
     });
 
@@ -74,9 +78,19 @@ export class MaintenanceService {
       data: {
         status: 'COMPLETED',
         completionDate: new Date(),
+        diagnosis: (dto as any).diagnosis,
         repairPerformed: dto.repairPerformed,
+        repairNotes: (dto as any).repairNotes,
         partsReplaced: dto.partsReplaced,
-        cost: dto.cost,
+        partsCost: (dto as any).partsCost,
+        laborCost: (dto as any).laborCost,
+        cost: dto.cost ?? ((((dto as any).partsCost ?? 0) + ((dto as any).laborCost ?? 0)) || undefined),
+        currency: (dto as any).currency,
+        invoiceNumber: (dto as any).invoiceNumber,
+        technicianName: (dto as any).technicianName,
+        technician: (dto as any).technicianName,
+        vendorId: (dto as any).vendorId,
+        warrantyClaim: (dto as any).warrantyClaim ?? false,
         conditionAfterId: conditionAfter.id,
       },
     });

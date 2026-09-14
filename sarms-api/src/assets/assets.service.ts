@@ -17,7 +17,23 @@ export class AssetsService {
     return randomBytes(16).toString('hex');
   }
 
+  /**
+   * DateTime columns reject bare date strings ("2027-06-01") with an opaque
+   * 500. Coerce every date-like field to a real Date (or undefined) before
+   * it reaches Prisma.
+   */
+  private normalizeDates(dto: CreateAssetDto & Record<string, any>) {
+    const dateFields = ['purchaseDate', 'acquisitionDate', 'warrantyStart', 'warrantyEnd'];
+    for (const f of dateFields) {
+      if (typeof dto[f] === 'string') {
+        dto[f] = dto[f] ? new Date(dto[f].length === 10 ? `${dto[f]}T00:00:00.000Z` : dto[f]) : undefined;
+      }
+    }
+    return dto;
+  }
+
   async register(dto: CreateAssetDto, actorId: number) {
+    this.normalizeDates(dto as any);
     const category = await this.prisma.assetCategory.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new BadRequestException('Unknown asset category');
 
@@ -47,15 +63,30 @@ export class AssetsService {
         model: dto.model,
         serialNumber: dto.serialNumber,
         serviceTag: dto.serviceTag,
+        imei: (dto as any).imei,
+        macAddress: (dto as any).macAddress,
+        purchaseDate: (dto as any).purchaseDate,
         acquisitionDate: dto.acquisitionDate,
+        acquisitionMethod: ((dto as any).acquisitionMethod as any) ?? 'PURCHASE',
         vendorId: dto.vendorId,
         purchaseOrderId: dto.purchaseOrderId,
         invoiceNumber: dto.invoiceNumber,
         warrantyStart: dto.warrantyStart,
         warrantyEnd: dto.warrantyEnd,
+        warrantyProvider: (dto as any).warrantyProvider,
+        warrantyType: (dto as any).warrantyType,
+        warrantyNumber: (dto as any).warrantyNumber,
+        warrantyCoverage: (dto as any).warrantyCoverage,
         originalCost: dto.originalCost,
         currency: dto.currency,
         fundingSource: dto.fundingSource,
+        projectCode: (dto as any).projectCode,
+        assetClass: (dto as any).assetClass,
+        usefulLifeYears: (dto as any).usefulLifeYears,
+        salvageValue: (dto as any).salvageValue,
+        barcodeValue: (dto as any).barcodeValue,
+        imageUrl: (dto as any).imageUrl,
+        parentAssetId: (dto as any).parentAssetId,
         owningDepartmentId: dto.owningDepartmentId,
         responsibleDepartmentId: dto.responsibleDepartmentId,
         currentRoomId: dto.currentRoomId,

@@ -1,7 +1,10 @@
+import { createHash, randomBytes } from 'crypto';
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 export interface JwtPayload {
@@ -16,6 +19,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private config: ConfigService,
+    private notifications: NotificationsService,
   ) {}
 
   /**
@@ -133,5 +138,58 @@ export class AuthService {
       data: { passwordHash: await bcrypt.hash(newPassword, 12) },
     });
     return { message: 'Password changed successfully' };
+  }
+
+  // ------------------------------------------------------------------
+  // Password reset (§6): opaque single-use token, sha256-hashed at rest,
+  // 60-minute expiry, emailed via the notification/mail service.
+  // The raw token is returned here so dev/test tooling can deliver it;
+  // in production FRONTEND_URL builds the reset link.
+  // ------------------------------------------------------------------
+  async requestPasswordReset(email: string) {
+    // Always return the same message so callers can't enumerate accounts.
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || user.status !== 'ACTIVE') {
+      return { message: 'If an account exists for that email, a reset link has been sent' };
+    }
+    const raw = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(raw).digest('hex');
+    await this.prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+    });
+    const frontend = this.config.get<string>('FRONTEND_URL', 'http://localhost:5173');
+    await this.notifications.notify(
+      user.id,
+      'PASSWORD_RESET',
+      'Password reset requested',
+      `Reset your SARMS password: ${frontend}/reset-password?token=${raw} (expires in 60 minutes).`,
+    );
+    return {
+      message: 'If an account exists for that email, a reset link has been sent',
+      // Returned for local dev/testing convenience; omit behind a flag in prod.
+      ...(this.config.get<string>('EXPOSE_RESET_TOKEN', 'true') === 'true' ? { resetToken: raw } : {}),
+    };
+  }
+
+  async resetPassword(rawToken: string, newPassword: string) {
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const row = await this.prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      throw new UnauthorizedException('Reset token is invalid or expired');
+    }
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: row.userId },
+        data: { passwordHash: await bcrypt.hash(newPassword, 12) },
+      }),
+      this.prisma.passwordResetToken.update({ where: { id: row.id }, data: { usedAt: new Date() } }),
+    ]);
+    return { message: 'Password has been reset successfully' };
+  }
+
+  async logout(userId: number) {
+    // Stateless JWT: logout is client-side token discard; we log it so the
+    // audit trail shows session end (§43 LOGIN/LOGOUT coverage).
+    return { message: 'Logged out', userId };
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { NumberSequenceService } from '../common/utils/number-sequence.service';
 import { CreateRequestDto } from './dto/create-request.dto';
 
@@ -8,12 +9,13 @@ export class RequestsService {
   constructor(
     private prisma: PrismaService,
     private numberSequence: NumberSequenceService,
+    private notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateRequestDto, requesterId: number) {
     const requestNumber = await this.numberSequence.next('REQ');
 
-    return this.prisma.assetRequest.create({
+    const request = await this.prisma.assetRequest.create({
       data: {
         requestNumber,
         requesterId,
@@ -32,6 +34,26 @@ export class RequestsService {
         status: 'SUBMITTED',
       },
     });
+
+    // Section 27: a freshly submitted request notifies whoever has to act on it —
+    // the requester's line manager (supervisor) and department head.
+    const requester = await this.prisma.user.findUnique({ where: { id: requesterId } });
+    const department = requester?.departmentId
+      ? await this.prisma.department.findUnique({ where: { id: requester.departmentId } })
+      : null;
+    const approverIds = [
+      requester?.supervisorId,
+      department?.headUserId,
+    ].filter((id): id is number => Boolean(id));
+
+    await this.notifications.notifyMany(
+      approverIds,
+      'REQUEST_SUBMITTED',
+      `New equipment request ${requestNumber}`,
+      `${requester?.fullName ?? 'A staff member'} requested ${dto.quantity ?? 1}x ${dto.requestType} — pending your approval.`,
+    );
+
+    return request;
   }
 
   findMine(requesterId: number) {
