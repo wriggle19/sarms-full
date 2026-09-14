@@ -21,6 +21,8 @@ import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { ScanAsset } from './pages/ScanAsset';
 import { Profile } from './pages/Profile';
+import { AuditLogs } from './pages/AuditLogs';
+import { Reservations } from './pages/Reservations';
 
 export default function App() {
   return (
@@ -47,6 +49,8 @@ export default function App() {
               <Route path="/clearance" element={<Clearance />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/reservations" element={<Reservations />} />
+              <Route path="/audit-logs" element={<AuditLogs />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

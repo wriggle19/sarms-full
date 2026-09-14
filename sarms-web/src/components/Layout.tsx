@@ -1,11 +1,12 @@
 import { NavLink, Link, Outlet, useNavigate } from 'react-router-dom';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import {
   LayoutDashboard, Boxes, ClipboardList, CheckSquare, PackageCheck,
   Wrench, AlertTriangle, Trash2, Truck, ScanLine, BarChart3, UserMinus,
-  Search, Bell, Settings as SettingsIcon,
+  Search, Bell, CalendarClock, ScrollText, Settings as SettingsIcon,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { api } from '../lib/api';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -13,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/requests', label: 'Requests', icon: ClipboardList },
   { to: '/approvals', label: 'Approvals', icon: CheckSquare },
   { to: '/issuance', label: 'Issuance', icon: PackageCheck },
+  { to: '/reservations', label: 'Reservations', icon: CalendarClock },
   { to: '/maintenance', label: 'Maintenance', icon: Wrench },
   { to: '/incidents', label: 'Incidents', icon: AlertTriangle },
   { to: '/disposal', label: 'Disposal', icon: Trash2 },
@@ -20,6 +22,7 @@ const NAV_ITEMS = [
   { to: '/stocktake', label: 'Stocktake', icon: ScanLine },
   { to: '/reports', label: 'Reports', icon: BarChart3 },
   { to: '/clearance', label: 'Clearance', icon: UserMinus },
+  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, admin: true },
   { to: '/settings', label: 'Settings', icon: SettingsIcon, admin: true },
 ];
 
@@ -27,7 +30,19 @@ export function Layout() {
   const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [notifs, setNotifs] = useState<any[]>([]);
+  const [bellOpen, setBellOpen] = useState(false);
   const visibleNav = NAV_ITEMS.filter((i) => !i.admin || hasPermission('users.view'));
+
+  useEffect(() => {
+    api.get('/notifications').then((r) => setNotifs(r.data)).catch(() => {});
+  }, []);
+
+  const unread = notifs.filter((n) => !n.isRead).length;
+  const markAll = async () => {
+    await api.patch('/notifications/read-all').catch(() => {});
+    setNotifs(notifs.map((n) => ({ ...n, isRead: true })));
+  };
 
   const submitSearch = (e: FormEvent) => {
     e.preventDefault();
@@ -94,9 +109,47 @@ export function Layout() {
               />
             </div>
           </form>
-          <button className="text-text-secondary hover:text-text-primary">
-            <Bell size={18} />
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setBellOpen((o) => !o)}
+              className="relative text-text-secondary hover:text-text-primary p-2"
+              title="Notifications"
+            >
+              <Bell size={18} />
+              {unread > 0 && (
+                <span className="absolute top-0 right-0 min-w-[18px] h-[18px] px-1 rounded-full bg-critical text-white text-[10px] flex items-center justify-center leading-none">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+            {bellOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setBellOpen(false)} />
+                <div className="absolute right-0 top-11 z-40 w-80 bg-white rounded-lg border border-border shadow-elevated overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                    <span className="font-medium text-text-primary text-sm">Notifications</span>
+                    {unread > 0 && (
+                      <button onClick={markAll} className="text-xs text-primary hover:underline">
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-border">
+                    {notifs.length === 0 && (
+                      <div className="px-4 py-6 text-sm text-text-secondary text-center">No notifications yet</div>
+                    )}
+                    {notifs.map((n) => (
+                      <div key={n.id} className={`px-4 py-3 ${n.isRead ? '' : 'bg-canvas'}`}>
+                        <div className={`text-sm font-medium ${n.isRead ? 'text-text-secondary' : 'text-text-primary'}`}>{n.title}</div>
+                        <div className="text-xs text-text-secondary mt-0.5">{n.body}</div>
+                        <div className="text-[10px] text-text-secondary mt-1">{new Date(n.createdAt).toLocaleString()}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </header>
         <main className="flex-1 bg-canvas overflow-y-auto">
           <div className="max-w-6xl mx-auto p-8">
