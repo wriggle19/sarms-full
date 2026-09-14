@@ -35,7 +35,16 @@ const ALLOWED_MIME = new Set([
 ]);
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads');
+const UPLOAD_DIR = (() => {
+  const dir = process.env.UPLOAD_DIR;
+  if (!dir) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('UPLOAD_DIR environment variable must be set in production');
+    }
+    return join(process.cwd(), 'uploads');
+  }
+  return dir;
+})();
 
 @Injectable()
 export class AttachmentsService {

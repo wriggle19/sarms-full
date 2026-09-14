@@ -27,6 +27,7 @@ import { Calendar } from './pages/Calendar';
 import { Imports } from './pages/Imports';
 import { Bulk } from './pages/Bulk';
 import { ResetPassword } from './pages/ResetPassword';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 export default function App() {
   return (
@@ -59,6 +60,7 @@ export default function App() {
               <Route path="/imports" element={<Imports />} />
               <Route path="/bulk" element={<Bulk />} />
               <Route path="/audit-logs" element={<AuditLogs />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Route>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NumberSequenceService } from '../common/utils/number-sequence.service';
@@ -92,6 +92,10 @@ export class RequestsService {
     const request = await this.findOne(id);
     if (request.requesterId !== requesterId) {
       throw new NotFoundException(`Request ${id} not found`); // don't leak existence to other users
+    }
+    const cancellable: string[] = ['DRAFT', 'SUBMITTED', 'CHANGES_REQUESTED'];
+    if (!cancellable.includes(request.status)) {
+      throw new ConflictException(`A request in status ${request.status} cannot be cancelled`);
     }
     return this.prisma.assetRequest.update({ where: { id }, data: { status: 'CANCELLED' } });
   }

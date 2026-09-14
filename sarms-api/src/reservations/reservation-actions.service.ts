@@ -13,25 +13,25 @@ export class ReservationActionsService {
   ) {}
 
   async decide(id: number, approverId: number, decision: 'APPROVED' | 'REJECTED' | 'CANCELLED') {
-    const row = await (this.prisma as any).assetReservation.findUnique({ where: { id } });
+    const row = await this.prisma.assetReservation.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Reservation ${id} not found`);
     if (row.status !== 'PENDING' && decision !== 'CANCELLED') {
       throw new BadRequestException(`Reservation is already ${row.status}`);
     }
-    return (this.prisma as any).assetReservation.update({
-      where: { id }, data: { status: decision as any, approvedById: approverId },
+    return this.prisma.assetReservation.update({
+      where: { id }, data: { status: decision, approvedById: approverId },
     });
   }
 
   async fulfill(id: number, actorId: number, dto: { assetId: number; conditionAtIssueCode?: string; expectedReturnDate?: string }) {
-    const row = await (this.prisma as any).assetReservation.findUnique({ where: { id } });
+    const row = await this.prisma.assetReservation.findUnique({ where: { id } });
     if (!row) throw new NotFoundException(`Reservation ${id} not found`);
     if (row.status !== 'APPROVED') throw new BadRequestException('Only APPROVED reservations can be fulfilled');
     const assetId = dto.assetId ?? row.assetId;
     if (!assetId) throw new BadRequestException('No asset selected for fulfilment');
     const check = await this.base.checkAvailability(assetId, undefined, new Date(row.startDateTime), new Date(row.endDateTime));
-    const others = (check.overlappingReservations as any[]).filter((r) => r.id !== id);
-    if (others.length > 0 || (check.conflictingAssignments as any[]).length > 0) {
+    const others = check.overlappingReservations.filter((r: any) => r.id !== id);
+    if (others.length > 0 || check.conflictingAssignments.length > 0) {
       throw new ForbiddenException('Asset is no longer available for this slot');
     }
     const active = await this.prisma.assetAssignment.findFirst({ where: { assetId, status: 'ACTIVE' } });
@@ -39,7 +39,8 @@ export class ReservationActionsService {
     const asset = await this.prisma.asset.findUnique({ where: { id: assetId }, include: { status: true } });
     if (!asset) throw new NotFoundException(`Asset ${assetId} not found`);
     if (asset.status.code !== 'AVAILABLE') {
-      await this.assetsService.transitionStatus(assetId, 'ISSUED', actorId, `Reservation #${id} fulfilled`);
+      // Transition to ASSIGNED (not ISSUED — ISSUED is a request status, not an asset status)
+      await this.assetsService.transitionStatus(assetId, 'ASSIGNED', actorId, `Reservation #${id} fulfilled`);
     }
     const condition = await this.prisma.assetCondition.findUnique({
       where: { code: dto.conditionAtIssueCode ?? 'GOOD' },
@@ -52,7 +53,7 @@ export class ReservationActionsService {
       },
     });
     await this.prisma.asset.update({ where: { id: assetId }, data: { currentCustodianId: row.reservedById } });
-    return (this.prisma as any).assetReservation.update({
+    return this.prisma.assetReservation.update({
       where: { id }, data: { status: 'FULFILLED', issuedAssignmentId: assignment.id },
     });
   }

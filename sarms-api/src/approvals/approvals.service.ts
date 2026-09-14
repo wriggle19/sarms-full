@@ -173,15 +173,28 @@ export class ApprovalsService {
     });
   }
 
-  pendingFor(approverId: number) {
-    // A practical approximation for the approval queue screen: every
-    // PENDING_APPROVAL request whose current step this user is eligible for.
-    // For LINE_MANAGER/DEPARTMENT_HEAD steps this still requires resolving
-    // per-request (see resolveApproverIds) - exposed here as a building block
-    // for that dashboard query rather than a fully optimized single query.
-    return this.prisma.assetRequest.findMany({
-      where: { status: 'PENDING_APPROVAL' },
+  async pendingFor(approverId: number) {
+    // Fetch all PENDING_APPROVAL requests then filter to those where this user
+    // is actually the designated approver for the current step. This is
+    // intentionally done in application code rather than a single SQL query
+    // because LINE_MANAGER and DEPARTMENT_HEAD resolution is dynamic per-request.
+    const all = await this.prisma.assetRequest.findMany({
+      where: { status: 'PENDING_APPROVAL', currentApprovalStepId: { not: null } },
       include: { requester: true, department: true, category: true },
     });
+
+    const eligible: typeof all = [];
+    for (const req of all) {
+      if (!req.currentApprovalStepId) continue;
+      const step = await this.prisma.approvalStep.findUnique({ where: { id: req.currentApprovalStepId } });
+      if (!step) continue;
+      const ids = await this.resolveApproverIds(step, req.requesterId);
+      // Empty ids means the step is open to any holder of the role (ROLE type
+      // with no specific user) - include it; otherwise check membership.
+      if (ids.length === 0 || ids.includes(approverId)) {
+        eligible.push(req);
+      }
+    }
+    return eligible;
   }
 }

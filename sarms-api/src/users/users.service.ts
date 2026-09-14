@@ -8,6 +8,25 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  private static SAFE_SELECT = {
+    id: true,
+    employeeId: true,
+    fullName: true,
+    email: true,
+    phone: true,
+    status: true,
+    profilePhotoUrl: true,
+    departmentId: true,
+    positionId: true,
+    campusId: true,
+    supervisorId: true,
+    startDate: true,
+    endDate: true,
+    lastLoginAt: true,
+    createdAt: true,
+    updatedAt: true,
+  } as const;
+
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
@@ -25,7 +44,11 @@ export class UsersService {
           ? { create: roleIds.map((roleId) => ({ roleId })) }
           : undefined,
       },
-      include: { roles: { include: { role: true } }, department: true },
+      select: {
+        ...UsersService.SAFE_SELECT,
+        roles: { include: { role: true } },
+        department: true,
+      },
     });
   }
 
@@ -35,7 +58,12 @@ export class UsersService {
         departmentId: params.departmentId,
         status: params.status as any,
       },
-      include: { department: true, position: true, roles: { include: { role: true } } },
+      select: {
+        ...UsersService.SAFE_SELECT,
+        department: true,
+        position: true,
+        roles: { include: { role: true } },
+      },
       orderBy: { fullName: 'asc' },
     });
   }
@@ -43,7 +71,12 @@ export class UsersService {
   async findOne(id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: { department: true, position: true, roles: { include: { role: true } } },
+      select: {
+        ...UsersService.SAFE_SELECT,
+        department: true,
+        position: true,
+        roles: { include: { role: true } },
+      },
     });
     if (!user) {
       throw new NotFoundException(`User ${id} not found`);
@@ -53,17 +86,23 @@ export class UsersService {
 
   async update(id: number, dto: UpdateUserDto) {
     await this.findOne(id);
-    return this.prisma.user.update({ where: { id }, data: dto });
+    const updated = await this.prisma.user.update({ where: { id }, data: dto });
+    const { passwordHash: _ph, ...safe } = updated;
+    return safe;
   }
 
   async deactivate(id: number) {
     await this.findOne(id);
-    return this.prisma.user.update({ where: { id }, data: { status: 'INACTIVE' } });
+    const updated = await this.prisma.user.update({ where: { id }, data: { status: 'INACTIVE' } });
+    const { passwordHash: _ph, ...safe } = updated;
+    return safe;
   }
 
   async activate(id: number) {
     await this.findOne(id);
-    return this.prisma.user.update({ where: { id }, data: { status: 'ACTIVE' } });
+    const updated = await this.prisma.user.update({ where: { id }, data: { status: 'ACTIVE' } });
+    const { passwordHash: _ph, ...safe } = updated;
+    return safe;
   }
 
   /**

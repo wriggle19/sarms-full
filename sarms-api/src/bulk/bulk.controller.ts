@@ -6,7 +6,7 @@ import { RequirePermission } from '../common/decorators/require-permission.decor
 import { CurrentUser, AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../common/decorators/audit.decorator';
 import { BulkService } from './bulk.service';
-import { IsArray, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class BulkTransferDto {
@@ -14,12 +14,16 @@ class BulkTransferDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() toRoomId?: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() toCustodianId?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional({ description: 'If true, validate only — nothing is written' })
+  @IsOptional() @IsBoolean() preview?: boolean;
 }
 
 class BulkStatusDto {
   @ApiProperty({ type: [Number] }) @IsArray() @IsInt({ each: true }) assetIds: number[];
   @ApiProperty() @IsString() statusCode: string;
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
+  @ApiPropertyOptional({ description: 'If true, validate only — nothing is written' })
+  @IsOptional() @IsBoolean() preview?: boolean;
 }
 
 @ApiTags('bulk')

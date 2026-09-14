@@ -12,11 +12,11 @@ export class ReservationsService {
     }
     if (!assetId && !categoryId) throw new BadRequestException('Provide assetId or categoryId');
     const timeOverlap = {
-      status: { in: ['PENDING', 'APPROVED'] as any },
+      status: { in: ['PENDING', 'APPROVED'] as ('PENDING' | 'APPROVED')[] },
       startDateTime: { lt: end },
       endDateTime: { gt: start },
     };
-    const overlapping = await (this.prisma as any).assetReservation.findMany({
+    const overlapping = await this.prisma.assetReservation.findMany({
       where: assetId ? { ...timeOverlap, assetId } : { ...timeOverlap, assetId: null, categoryId },
     });
     let conflictingAssignments: object[] = [];
@@ -38,7 +38,7 @@ export class ReservationsService {
     if (!check.available) {
       throw new BadRequestException('Requested slot overlaps an existing reservation or active assignment');
     }
-    return (this.prisma as any).assetReservation.create({
+    return this.prisma.assetReservation.create({
       data: {
         assetId: dto.assetId, categoryId: dto.categoryId, reservedById,
         departmentId: dto.departmentId, roomId: dto.roomId,
@@ -48,7 +48,7 @@ export class ReservationsService {
   }
 
   listMine(userId: number) {
-    return (this.prisma as any).assetReservation.findMany({
+    return this.prisma.assetReservation.findMany({
       where: { reservedById: userId },
       orderBy: { startDateTime: 'desc' },
       include: { asset: true, requester: true },
@@ -56,7 +56,7 @@ export class ReservationsService {
   }
 
   listAll(status?: string) {
-    return (this.prisma as any).assetReservation.findMany({
+    return this.prisma.assetReservation.findMany({
       where: status ? { status: status as any } : undefined,
       orderBy: { startDateTime: 'desc' },
       take: 200,

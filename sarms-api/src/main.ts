@@ -21,7 +21,11 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:5173';
+  app.enableCors({
+    origin: corsOrigin.split(',').map((o) => o.trim()),
+    credentials: true,
+  });
 
   const config = new DocumentBuilder()
     .setTitle('SARMS API')

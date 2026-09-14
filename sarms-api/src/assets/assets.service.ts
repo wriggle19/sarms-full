@@ -224,6 +224,14 @@ export class AssetsService {
 
   async softDelete(id: number, actorId: number) {
     await this.findOne(id);
+
+    const activeAssignment = await this.prisma.assetAssignment.findFirst({
+      where: { assetId: id, status: 'ACTIVE' },
+    });
+    if (activeAssignment) {
+      throw new ConflictException('Cannot delete an asset with an active assignment - return or transfer it first');
+    }
+
     return this.prisma.asset.update({
       where: { id },
       data: { isDeleted: true, updatedById: actorId },

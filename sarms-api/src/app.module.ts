@@ -34,6 +34,7 @@ import { AuditModule } from './audit/audit.module';
 import { BulkModule } from './bulk/bulk.module';
 import { AttachmentsModule } from './attachments/attachments.module';
 import { ImportsModule } from './imports/imports.module';
+import { SequencesController } from './common/utils/sequences.controller';
 
 @Module({
   imports: [
@@ -86,5 +87,6 @@ import { ImportsModule } from './imports/imports.module';
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
+  controllers: [SequencesController],
 })
 export class AppModule {}

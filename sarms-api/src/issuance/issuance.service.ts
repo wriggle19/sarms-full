@@ -28,11 +28,16 @@ export class IssuanceService {
   }
 
   async finalize(requestId: number, dto: FinalizeIssuanceDto, issuedById: number) {
-    const request = await this.prisma.assetRequest.findUnique({ where: { id: requestId } });
-    if (!request) throw new NotFoundException(`Request ${requestId} not found`);
-    if (request.status !== 'APPROVED') {
-      throw new ConflictException('Only APPROVED requests can be issued');
-    }
+    // Mark the request ISSUED atomically before delegating to custody so two
+    // concurrent officers cannot both finalize the same approved request.
+    const request = await this.prisma.$transaction(async (tx) => {
+      const req = await tx.assetRequest.findUnique({ where: { id: requestId } });
+      if (!req) throw new NotFoundException(`Request ${requestId} not found`);
+      if (req.status !== 'APPROVED') {
+        throw new ConflictException('Only APPROVED requests can be issued');
+      }
+      return tx.assetRequest.update({ where: { id: requestId }, data: { status: 'ISSUED' } });
+    }, { isolationLevel: 'Serializable' });
 
     const assignment = await this.custodyService.issue(
       {
@@ -47,8 +52,6 @@ export class IssuanceService {
       },
       issuedById,
     );
-
-    await this.prisma.assetRequest.update({ where: { id: requestId }, data: { status: 'ISSUED' } });
 
     return assignment;
   }

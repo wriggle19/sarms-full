@@ -48,11 +48,17 @@ export class AuthService {
   async validateUser(email: string, password: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user || user.status !== 'ACTIVE') {
+      await this.prisma.auditLog.create({
+        data: { action: 'LOGIN_FAILED', module: 'auth', recordType: 'User', newValue: JSON.stringify({ email, reason: 'user not found or inactive' }) },
+      }).catch(() => {});
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
+      await this.prisma.auditLog.create({
+        data: { userId: user.id, action: 'LOGIN_FAILED', module: 'auth', recordType: 'User', recordId: user.id, newValue: JSON.stringify({ reason: 'wrong password' }) },
+      }).catch(() => {});
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -166,8 +172,8 @@ export class AuthService {
     );
     return {
       message: 'If an account exists for that email, a reset link has been sent',
-      // Returned for local dev/testing convenience; omit behind a flag in prod.
-      ...(this.config.get<string>('EXPOSE_RESET_TOKEN', 'true') === 'true' ? { resetToken: raw } : {}),
+      // Returned only when explicitly enabled (dev/test only — never in production).
+      ...(this.config.get<string>('EXPOSE_RESET_TOKEN', 'false') === 'true' ? { resetToken: raw } : {}),
     };
   }
 

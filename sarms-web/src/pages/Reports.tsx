@@ -44,7 +44,27 @@ export function Reports() {
   const EXPORTS = [
     { label: 'Asset Register', url: '/reports/asset-register.csv', file: 'asset-register.csv' },
     { label: 'Overdue Returns', url: '/reports/overdue.csv', file: 'overdue.csv' },
+    { label: 'Warranties Expiring', url: '/reports/warranties-expiring', file: 'warranties-expiring.csv', json: true },
+    { label: 'By Department', url: '/reports/by-department', file: 'by-department.csv', json: true },
+    { label: 'Maintenance Costs', url: '/reports/maintenance-costs', file: 'maintenance-costs.csv', json: true },
+    { label: 'Compliance', url: '/reports/compliance', file: 'compliance.csv', json: true },
   ];
+
+  const downloadJson = async (url: string, filename: string) => {
+    try {
+      const res = await api.get(url);
+      const rows: any[] = Array.isArray(res.data) ? res.data : Object.entries(res.data).map(([k, v]) => ({ metric: k, value: v }));
+      if (rows.length === 0) { alert('No data to export.'); return; }
+      const headers = Object.keys(rows[0]);
+      const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(href);
+    } catch { alert('Could not download report.'); }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,11 +80,11 @@ export function Reports() {
           <div className="font-medium text-text-primary">Export CSV reports</div>
           <div className="text-sm text-text-secondary mt-0.5">Downloaded reports respect your permissions.</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {EXPORTS.map((ex) => (
             <button
               key={ex.url}
-              onClick={() => downloadCsv(ex.url, ex.file)}
+              onClick={() => (ex as any).json ? downloadJson(ex.url, ex.file) : downloadCsv(ex.url, ex.file)}
               className="inline-flex items-center gap-1.5 h-9 px-3 rounded border border-border text-sm font-medium hover:bg-canvas"
             >
               <Download size={15} /> {ex.label}

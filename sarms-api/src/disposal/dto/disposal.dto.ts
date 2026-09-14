@@ -16,4 +16,5 @@ export class CreateDisposalDto {
   @ApiProperty({ enum: DisposalMethodDto }) @IsEnum(DisposalMethodDto) disposalMethod: DisposalMethodDto;
   @ApiPropertyOptional() @IsOptional() @IsInt() disposalVendorId?: number;
   @ApiPropertyOptional() @IsOptional() @IsNumber() proceeds?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() financeApprovedById?: number;
 }

@@ -46,6 +46,7 @@ model User {
   maintenanceReported  MaintenanceRecord[] @relation("ReportedBy")
   incidentsReported    AssetIncident[]     @relation("ReportedBy")
   disposalsApproved    Disposal[]          @relation("DisposalApprovedBy")
+  disposalsFinanceApproved Disposal[]       @relation("DisposalFinanceApprovedBy")
   stocktakesStarted    Stocktake[]         @relation("StocktakeStartedBy")
   stocktakeScans       StocktakeItem[]     @relation("ScannedBy")
   notifications        Notification[]
@@ -738,6 +739,7 @@ model Disposal {
   approvedById       Int
   approvedBy         User    @relation("DisposalApprovedBy", fields: [approvedById], references: [id])
   financeApprovedById Int?
+  financeApprovedBy   User?   @relation("DisposalFinanceApprovedBy", fields: [financeApprovedById], references: [id])
 
   disposalVendorId Int?
   disposalVendor   Vendor? @relation("DisposalVendor", fields: [disposalVendorId], references: [id])

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Boxes, ClipboardList, CheckSquare, PackageCheck,
   Wrench, AlertTriangle, Trash2, Truck, ScanLine, BarChart3, UserMinus,
   Search, Bell, CalendarClock, ScrollText, Settings as SettingsIcon,
-  Layers, FileUp,
+  Layers, FileUp, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
@@ -36,6 +36,7 @@ export function Layout() {
   const [query, setQuery] = useState('');
   const [notifs, setNotifs] = useState<any[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const visibleNav = NAV_ITEMS.filter((i) => !i.admin || hasPermission('users.view'));
 
   useEffect(() => {
@@ -46,6 +47,11 @@ export function Layout() {
   const markAll = async () => {
     await api.patch('/notifications/read-all').catch(() => {});
     setNotifs(notifs.map((n) => ({ ...n, isRead: true })));
+  };
+
+  const markOne = async (id: number) => {
+    await api.patch(`/notifications/${id}/read`).catch(() => {});
+    setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
 
   const submitSearch = (e: FormEvent) => {
@@ -142,13 +148,52 @@ export function Layout() {
                     {notifs.length === 0 && (
                       <div className="px-4 py-6 text-sm text-text-secondary text-center">No notifications yet</div>
                     )}
-                    {notifs.map((n) => (
-                      <div key={n.id} className={`px-4 py-3 ${n.isRead ? '' : 'bg-canvas'}`}>
-                        <div className={`text-sm font-medium ${n.isRead ? 'text-text-secondary' : 'text-text-primary'}`}>{n.title}</div>
-                        <div className="text-xs text-text-secondary mt-0.5">{n.body}</div>
-                        <div className="text-[10px] text-text-secondary mt-1">{new Date(n.createdAt).toLocaleString()}</div>
-                      </div>
-                    ))}
+                    {notifs.map((n) => {
+                      const expanded = expandedId === n.id;
+                      const toggle = async () => {
+                        if (!n.isRead) await markOne(n.id);
+                        setExpandedId(expanded ? null : n.id);
+                      };
+                      return (
+                        <div key={n.id} className={`${n.isRead ? '' : 'bg-canvas'}`}>
+                          <button
+                            onClick={toggle}
+                            className="w-full text-left px-4 py-3 flex items-start gap-2 hover:bg-canvas/60 transition-colors"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className={`text-sm font-medium leading-snug ${
+                                n.isRead ? 'text-text-secondary' : 'text-text-primary'
+                              }`}>
+                                {n.title}
+                              </div>
+                              {!expanded && (
+                                <div className="text-xs text-text-secondary mt-0.5 truncate">{n.body}</div>
+                              )}
+                              <div className="text-[10px] text-text-secondary mt-1">
+                                {new Date(n.createdAt).toLocaleString()}
+                              </div>
+                            </div>
+                            {expanded
+                              ? <ChevronUp size={14} className="shrink-0 mt-0.5 text-text-secondary" />
+                              : <ChevronDown size={14} className="shrink-0 mt-0.5 text-text-secondary" />}
+                          </button>
+                          {expanded && (
+                            <div className="px-4 pb-3 text-sm text-text-primary whitespace-pre-wrap break-words border-t border-border/50 pt-2 bg-soft-accent/30">
+                              {n.body}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-border px-4 py-2.5">
+                    <Link
+                      to="/notifications"
+                      onClick={() => setBellOpen(false)}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View all notifications
+                    </Link>
                   </div>
                 </div>
               </>

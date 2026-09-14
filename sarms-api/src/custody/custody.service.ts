@@ -29,27 +29,32 @@ export class CustodyService {
    * Business rules enforced (Section 65):
    * - an asset already actively assigned cannot be issued again
    * - an asset under maintenance or retired/disposed cannot be issued
+   *
+   * Concurrency: the availability check and assignment creation run inside a
+   * single serializable transaction so two simultaneous issuance requests for
+   * the same asset cannot both succeed.
    */
   async issue(dto: IssueAssetDto, issuedById: number) {
-    const asset = await this.prisma.asset.findUnique({ where: { id: dto.assetId }, include: { status: true } });
-    if (!asset || asset.isDeleted) throw new NotFoundException(`Asset ${dto.assetId} not found`);
-
-    const blockingStatuses = ['MAINTENANCE', 'RETIRED', 'DISPOSED', 'LOST', 'STOLEN'];
-    if (blockingStatuses.includes(asset.status.code)) {
-      throw new ConflictException(`Asset is currently ${asset.status.code} and cannot be issued`);
-    }
-
-    const activeAssignment = await this.prisma.assetAssignment.findFirst({
-      where: { assetId: dto.assetId, status: 'ACTIVE' },
-    });
-    if (activeAssignment) {
-      throw new ConflictException('Asset already has an active assignment - return or transfer it first');
-    }
-
     const conditionAtIssue = await this.requireCondition(dto.conditionAtIssueCode);
 
-    const [assignment] = await this.prisma.$transaction([
-      this.prisma.assetAssignment.create({
+    const assignment = await this.prisma.$transaction(async (tx) => {
+      // Re-fetch inside the transaction so the serializable snapshot is current.
+      const asset = await tx.asset.findUnique({ where: { id: dto.assetId }, include: { status: true } });
+      if (!asset || asset.isDeleted) throw new NotFoundException(`Asset ${dto.assetId} not found`);
+
+      const blockingStatuses = ['MAINTENANCE', 'RETIRED', 'DISPOSED', 'LOST', 'STOLEN'];
+      if (blockingStatuses.includes(asset.status.code)) {
+        throw new ConflictException(`Asset is currently ${asset.status.code} and cannot be issued`);
+      }
+
+      const activeAssignment = await tx.assetAssignment.findFirst({
+        where: { assetId: dto.assetId, status: 'ACTIVE' },
+      });
+      if (activeAssignment) {
+        throw new ConflictException('Asset already has an active assignment - return or transfer it first');
+      }
+
+      const created = await tx.assetAssignment.create({
         data: {
           assetId: dto.assetId,
           assignmentType: dto.assignmentType,
@@ -62,15 +67,17 @@ export class CustodyService {
           conditionAtIssueId: conditionAtIssue.id,
           notes: dto.notes,
         },
-      }),
-      this.prisma.asset.update({
+      });
+
+      await tx.asset.update({
         where: { id: dto.assetId },
         data: {
           currentRoomId: dto.roomId ?? asset.currentRoomId,
           conditionId: conditionAtIssue.id,
         },
-      }),
-      this.prisma.assetHistory.create({
+      });
+
+      await tx.assetHistory.create({
         data: {
           assetId: dto.assetId,
           eventType: 'ISSUED',
@@ -79,14 +86,15 @@ export class CustodyService {
             ? `Issued to user #${dto.custodianUserId}`
             : `Issued to ${dto.assignmentType.toLowerCase()}`,
         },
-      }),
-    ]);
+      });
 
-    // Runs after the transaction so a status-transition failure doesn't
-    // silently leave an orphaned assignment - if this throws, the caller
-    // sees a real error rather than a half-applied issuance.
-    const targetStatus = dto.assignmentType === 'PERSON' ? 'ASSIGNED' : 'ASSIGNED';
-    await this.assetsService.transitionStatus(dto.assetId, targetStatus, issuedById, 'Issued');
+      return created;
+    }, { isolationLevel: 'Serializable' });
+
+    // Status transition runs after the transaction; if it fails the assignment
+    // row already exists and the caller sees a real error rather than a silent
+    // half-applied issuance.
+    await this.assetsService.transitionStatus(dto.assetId, 'ASSIGNED', issuedById, 'Issued');
 
     return assignment;
   }

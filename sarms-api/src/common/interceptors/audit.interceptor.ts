@@ -68,9 +68,21 @@ export class AuditInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest();
     const user = request.user as AuthenticatedUser | undefined;
 
+    // For UPDATE actions, snapshot the current record before the handler runs
+    // so we can store previousValue in the audit log.
+    let previousValuePromise: Promise<unknown> | null = null;
+    if (meta.action === 'UPDATE' && meta.recordType && request.params?.id) {
+      const recordId = Number(request.params.id);
+      const table = meta.recordType.charAt(0).toLowerCase() + meta.recordType.slice(1);
+      previousValuePromise = (this.prisma as any)[table]
+        ?.findUnique({ where: { id: recordId } })
+        .catch(() => null) ?? Promise.resolve(null);
+    }
+
     return next.handle().pipe(
-      tap((result) => {
+      tap(async (result) => {
         const recordId = result?.id ?? request.params?.id ?? null;
+        const previousValue = previousValuePromise ? await previousValuePromise : undefined;
         this.prisma.auditLog
           .create({
             data: {
@@ -79,15 +91,14 @@ export class AuditInterceptor implements NestInterceptor {
               module: meta.module,
               recordType: meta.recordType,
               recordId: recordId ? Number(recordId) : null,
+              previousValue: previousValue ? JSON.stringify(this.sanitize(previousValue)) : undefined,
               newValue: result ? JSON.stringify(this.sanitize(result)) : undefined,
               ipAddress: request.ip,
               userAgent: request.headers?.['user-agent'],
             },
           })
           .catch(() => {
-            // Audit logging must never break the actual request. Log to
-            // stderr and move on - a monitoring alert on this catch block
-            // is worth setting up in production.
+            // Audit logging must never break the actual request.
             // eslint-disable-next-line no-console
             console.error('Failed to write audit log for', meta);
           });
