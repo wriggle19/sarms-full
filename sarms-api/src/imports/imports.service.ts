@@ -72,9 +72,9 @@ export class ImportsService {
       this.prisma.asset.findMany({ where: { serialNumber: { not: null } }, select: { serialNumber: true } }),
     ]);
     const serialSet = new Set(existingSerials.map((a) => a.serialNumber));
-    const catByName = new Map(categories.map((c) => [c.name.toLowerCase(), c]));
-    const deptByName = new Map(departments.map((d) => [d.name.toLowerCase(), d]));
-    const roomByName = new Map(rooms.map((r) => [r.name.toLowerCase(), r]));
+    const catByName = new Map<string, any>(categories.map((c: any) => [c.name.toLowerCase(), c]));
+    const deptByName = new Map<string, any>(departments.map((d: any) => [d.name.toLowerCase(), d]));
+    const roomByName = new Map<string, any>(rooms.map((r: any) => [r.name.toLowerCase(), r]));
 
     const results: { row: ImportRow; valid: boolean; error?: string; duplicateSerial?: boolean }[] = [];
     for (const row of rows) {
@@ -117,9 +117,15 @@ export class ImportsService {
       };
     }
 
-    const catByName = new Map((await this.prisma.assetCategory.findMany()).map((c) => [c.name.toLowerCase(), c]));
-    const deptByName = new Map((await this.prisma.department.findMany()).map((d) => [d.name.toLowerCase(), d]));
-    const roomByName = new Map((await this.prisma.room.findMany()).map((r) => [r.name.toLowerCase(), r]));
+    const catByName = new Map<string, any>(
+      (await this.prisma.assetCategory.findMany()).map((c: any) => [c.name.toLowerCase(), c]),
+    );
+    const deptByName = new Map<string, any>(
+      (await this.prisma.department.findMany()).map((d: any) => [d.name.toLowerCase(), d]),
+    );
+    const roomByName = new Map<string, any>(
+      (await this.prisma.room.findMany()).map((r: any) => [r.name.toLowerCase(), r]),
+    );
 
     const created: any[] = [];
     const failed: { name: string; error: string }[] = [];

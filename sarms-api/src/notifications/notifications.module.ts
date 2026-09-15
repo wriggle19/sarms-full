@@ -9,7 +9,10 @@ import { NotificationsDispatchService } from './notifications-dispatch.service';
 import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [ScheduleModule.forRoot()],
+  // MailModule MUST be imported: NotificationsDispatchService injects
+  // MailService for outbound email. Removing it breaks application boot with
+  // an unresolvable-dependency error (regression caught by e2e smoke test).
+  imports: [MailModule, ScheduleModule.forRoot()],
   providers: [NotificationsService, NotificationsDispatchService, SchedulerService],
   controllers: [NotificationsController, NotificationsAdminController, SchedulerController],
   exports: [NotificationsService, NotificationsDispatchService],

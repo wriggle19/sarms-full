@@ -54,6 +54,16 @@ export class AssetsService {
     const prefix = category.name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'AST';
     const assetTag = await this.numberSequence.next(prefix, { yearScoped: false });
 
+    // Priority 4.2: record the exchange rate alongside the original amount and
+    // compute the base-currency equivalent server-side at acquisition time.
+    // originalCost/currency are stored exactly as entered - never converted or
+    // mutated - so the historical acquisition value is always recoverable.
+    const exchangeRate = (dto as any).exchangeRate ?? null;
+    const baseCurrencyAmount =
+      dto.originalCost != null && exchangeRate != null
+        ? Math.round(Number(dto.originalCost) * Number(exchangeRate) * 100) / 100
+        : null;
+
     const asset = await this.prisma.asset.create({
       data: {
         assetTag,
@@ -80,6 +90,8 @@ export class AssetsService {
         warrantyCoverage: (dto as any).warrantyCoverage,
         originalCost: dto.originalCost,
         currency: dto.currency,
+        exchangeRate,
+        baseCurrencyAmount,
         fundingSource: dto.fundingSource,
         projectCode: (dto as any).projectCode,
         assetClass: (dto as any).assetClass,

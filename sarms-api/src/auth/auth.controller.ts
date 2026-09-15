@@ -23,7 +23,10 @@ export class AuthController {
   }
 
   @Post('password-reset/request')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  // Tighter, longer window than login: this endpoint sends email, so it is a
+  // distinct abuse vector (mailbox flooding / victim harassment) regardless of
+  // whether any credentials are correct. 3 requests / 10 min per IP.
+  @Throttle({ default: { limit: 3, ttl: 600000 } })
   requestReset(@Body() dto: RequestResetDto) {
     return this.authService.requestPasswordReset(dto.email);
   }

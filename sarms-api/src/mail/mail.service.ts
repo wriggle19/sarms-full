@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +18,7 @@ export interface OutboundMail {
  */
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
   private transporter: nodemailer.Transporter | null = null;
 
   constructor(
@@ -46,8 +47,7 @@ export class MailService {
 
   async send(mail: OutboundMail): Promise<boolean> {
     if (!this.transporter) {
-      // eslint-disable-next-line no-console
-      console.log('[mail:dev-log]', mail.to, mail.subject);
+      this.logger.debug(`[dev-log] SMTP not configured; would email ${mail.to}: ${mail.subject}`);
       return false;
     }
     await this.transporter.sendMail({

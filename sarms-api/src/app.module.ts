@@ -1,10 +1,13 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { HealthModule } from './health/health.module';
 
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -51,6 +54,7 @@ import { SequencesController } from './common/utils/sequences.controller';
       ],
     }),
     PrismaModule,
+    HealthModule,
 
     AuthModule,
     UsersModule,
@@ -86,7 +90,14 @@ import { SequencesController } from './common/utils/sequences.controller';
     // automatically. See src/common/interceptors/audit.interceptor.ts.
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    // Global: consistent JSON error shape, no internal detail leakage in prod.
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
   controllers: [SequencesController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Request correlation ids + access logging for every route.
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
+  }
+}

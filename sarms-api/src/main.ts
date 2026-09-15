@@ -1,14 +1,16 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
   // Fail fast: a missing JWT_SECRET in production would let anyone forge tokens.
   if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
-    console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+    logger.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
     process.exit(1);
   }
   const app = await NestFactory.create(AppModule);
@@ -43,7 +45,6 @@ async function bootstrap() {
 
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   await app.listen(port);
-  // eslint-disable-next-line no-console
-  console.log(`SARMS API running on port ${port} (docs at /api/docs)`);
+  logger.log(`SARMS API running on port ${port} (docs at /api/docs, health at /health)`);
 }
 bootstrap();

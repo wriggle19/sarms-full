@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="SARMS">
+  <rect width="32" height="32" rx="6" fill="#0f172a" />
+  <path d="M16 5l9 4v6.5c0 5.2-3.6 9.3-9 11-5.4-1.7-9-5.8-9-11V9l9-4z" fill="#38bdf8" />
+  <path d="M15 10h2v12h-2zM12 14h8v2h-8zM12 18h8v2h-8z" fill="#0f172a" />
+</svg>

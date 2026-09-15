@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
 import { ArrowRightLeft, Undo2, Laptop } from 'lucide-react';
 import { api } from '../lib/api';
 import { StatusBadge } from '../components/StatusBadge';
-import { Barcode } from '../components/Barcode';
+
+// QR/barcode codecs (~900KB) load on demand - not part of the AssetDetail chunk.
+const AssetCodes = lazy(() =>
+  import('../components/AssetCodes').then((m) => ({ default: m.AssetCodes })),
+);
+function CodesFallback() {
+  return <div className="text-xs text-text-secondary">Rendering codes…</div>;
+}
 
 interface HistoryRow {
   id: number;
@@ -141,18 +147,11 @@ export function AssetDetail() {
         </div>
 
         <div className="bg-white rounded-lg border border-border shadow-card p-6 flex flex-col items-center text-center">
-          <div className="text-sm font-medium text-text-primary mb-3">QR Code &amp; Barcode</div>
-          <div className="text-xs font-semibold text-text-secondary uppercase tracking-wide">QR Code</div>
-          <div className="p-2 bg-white border border-border rounded">
-            <QRCodeSVG value={`${window.location.origin}/scan/${asset.qrToken}`} size={132} />
-          </div>
+          <Suspense fallback={<CodesFallback />}>
+            <AssetCodes qrToken={asset.qrToken} assetTag={asset.assetTag} />
+          </Suspense>
           <div className="text-xs font-mono text-text-secondary mt-1 break-all">{asset.qrToken}</div>
           <div className="text-xs text-text-secondary mt-1">Scan to view this asset (requires login)</div>
-
-          <div className="text-xs font-semibold text-text-secondary uppercase tracking-wide mt-4">Barcode (Code128)</div>
-          <div className="bg-white border border-border rounded p-2">
-            <Barcode text={asset.assetTag} />
-          </div>
           <div className="text-xs text-text-secondary mt-1">The barcode encodes the human-readable tag: <span className="font-mono">{asset.assetTag}</span></div>
         </div>
       </div>

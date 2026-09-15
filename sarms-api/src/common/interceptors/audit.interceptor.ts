@@ -2,6 +2,7 @@ import {
   CallHandler,
   ExecutionContext,
   Injectable,
+  Logger,
   NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -19,6 +20,8 @@ import { AuthenticatedUser } from '../decorators/current-user.decorator';
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(AuditInterceptor.name);
+
   constructor(
     private reflector: Reflector,
     private prisma: PrismaService,
@@ -99,8 +102,7 @@ export class AuditInterceptor implements NestInterceptor {
           })
           .catch(() => {
             // Audit logging must never break the actual request.
-            // eslint-disable-next-line no-console
-            console.error('Failed to write audit log for', meta);
+            this.logger.error(`Failed to write audit log for ${meta.module}.${meta.action}`);
           });
       }),
     );

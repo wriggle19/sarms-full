@@ -11,13 +11,19 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "ts-node prisma/seed.ts",
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
   },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
     "rootDir": ".",
     "testRegex": ".spec.ts$",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/dist/",
+      "/test/"
+    ],
     "moduleFileExtensions": [
       "ts",
       "js",
@@ -49,6 +55,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "prisma": "^5.22.0",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
@@ -65,8 +72,9 @@
     "@types/nodemailer": "^8.0.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
+    "@types/supertest": "^7.2.1",
     "jest": "^30.5.1",
-    "prisma": "^5.22.0",
+    "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

@@ -9,25 +9,28 @@ import {
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { to: string; label: string; icon: any; end?: boolean; perm?: string }[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/assets', label: 'Assets', icon: Boxes },
-  { to: '/requests', label: 'Requests', icon: ClipboardList },
-  { to: '/approvals', label: 'Approvals', icon: CheckSquare },
-  { to: '/issuance', label: 'Issuance', icon: PackageCheck },
-  { to: '/reservations', label: 'Reservations', icon: CalendarClock },
-  { to: '/maintenance', label: 'Maintenance', icon: Wrench },
-  { to: '/incidents', label: 'Incidents', icon: AlertTriangle },
-  { to: '/disposal', label: 'Disposal', icon: Trash2 },
-  { to: '/procurement', label: 'Procurement', icon: Truck },
-  { to: '/stocktake', label: 'Stocktake', icon: ScanLine },
-  { to: '/reports', label: 'Reports', icon: BarChart3 },
-  { to: '/calendar', label: 'Calendar', icon: CalendarClock },
-  { to: '/clearance', label: 'Clearance', icon: UserMinus },
-  { to: '/bulk', label: 'Bulk Ops', icon: Layers, admin: true },
-  { to: '/imports', label: 'Import Assets', icon: FileUp, admin: true },
-  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, admin: true },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon, admin: true },
+  { to: '/assets', label: 'Assets', icon: Boxes, perm: 'assets.view' },
+  { to: '/requests', label: 'Requests', icon: ClipboardList, perm: 'requests.view' },
+  { to: '/approvals', label: 'Approvals', icon: CheckSquare, perm: 'requests.approve' },
+  { to: '/issuance', label: 'Issuance', icon: PackageCheck, perm: 'assets.issue' },
+  { to: '/reservations', label: 'Reservations', icon: CalendarClock, perm: 'assets.view' },
+  { to: '/maintenance', label: 'Maintenance', icon: Wrench, perm: 'maintenance.manage' },
+  { to: '/incidents', label: 'Incidents', icon: AlertTriangle, perm: 'assets.view' },
+  { to: '/disposal', label: 'Disposal', icon: Trash2, perm: 'disposal.approve' },
+  { to: '/procurement', label: 'Procurement', icon: Truck, perm: 'procurement.manage' },
+  { to: '/stocktake', label: 'Stocktake', icon: ScanLine, perm: 'assets.view' },
+  { to: '/reports', label: 'Reports', icon: BarChart3, perm: 'assets.view' },
+  { to: '/calendar', label: 'Calendar', icon: CalendarClock, perm: 'assets.view' },
+  { to: '/clearance', label: 'Clearance', icon: UserMinus, perm: 'users.view' },
+  // Admin tooling - each gated on the SPECIFIC permission its page requires
+  // server-side, not a loose proxy like users.view (a Department Head with
+  // users.view must not see IT admin tooling).
+  { to: '/bulk', label: 'Bulk Ops', icon: Layers, perm: 'assets.transfer' },
+  { to: '/imports', label: 'Import Assets', icon: FileUp, perm: 'assets.create' },
+  { to: '/audit-logs', label: 'Audit Log', icon: ScrollText, perm: 'audit.view' },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon, perm: 'roles.manage' },
 ];
 
 export function Layout() {
@@ -37,7 +40,9 @@ export function Layout() {
   const [notifs, setNotifs] = useState<any[]>([]);
   const [bellOpen, setBellOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const visibleNav = NAV_ITEMS.filter((i) => !i.admin || hasPermission('users.view'));
+  const visibleNav = NAV_ITEMS.filter(
+    (i) => !i.perm || hasPermission(i.perm),
+  );
 
   useEffect(() => {
     api.get('/notifications').then((r) => setNotifs(r.data)).catch(() => {});

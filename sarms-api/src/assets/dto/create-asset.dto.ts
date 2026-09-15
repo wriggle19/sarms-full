@@ -25,6 +25,10 @@ export class CreateAssetDto {
   @ApiPropertyOptional() @IsOptional() @IsString() warrantyCoverage?: string;
   @ApiPropertyOptional() @IsOptional() @IsNumber() originalCost?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() currency?: string;
+  // Exchange rate at acquisition (base-currency units per 1 unit of `currency`).
+  // baseCurrencyAmount is always COMPUTED SERVER-SIDE from this - clients
+  // never submit the converted amount directly.
+  @ApiPropertyOptional() @IsOptional() @IsNumber() exchangeRate?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() fundingSource?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() projectCode?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() assetClass?: string;

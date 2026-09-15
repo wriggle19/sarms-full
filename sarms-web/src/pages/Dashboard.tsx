@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Boxes, CheckCircle2, PackageCheck, Wrench, AlertTriangle, ClipboardList, Clock } from 'lucide-react';
+import { Boxes, CheckCircle2, PackageCheck, Wrench, AlertTriangle, ClipboardList, Clock, BarChart3 } from 'lucide-react';
 import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
 
 interface Summary {
   totalAssets: number;
@@ -32,20 +33,82 @@ function Card({ label, value, sub, icon: Icon, tone }: { label: string; value: n
 }
 
 export function Dashboard() {
+  const { hasPermission } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [activity, setActivity] = useState<ActivityRow[]>([]);
+  const [finance, setFinance] = useState<{ byCurrency: { currency: string; totalAcquisitionCost: number; assetCount: number }[]; baseCurrencyTotal: number } | null>(null);
+  const [myRequests, setMyRequests] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.get('/dashboard/summary'), api.get('/dashboard/recent-activity')])
-      .then(([s, a]) => {
-        setSummary(s.data);
-        setActivity(a.data);
-      })
-      .catch(() => setError('Could not load dashboard data.'));
+    // Role-scoped dashboard (Priority 4.1):
+    //  - assets.view holders get the fleet overview (+ finance row when they
+    //    hold finance.view - the endpoint is server-guarded regardless).
+    //  - everyone else (e.g. a plain requester) gets a personal view of their
+    //    own requests instead of fleet data they are not authorized to see.
+    //
+    // Each call is settled INDEPENDENTLY: a failure in an optional panel (e.g.
+    // finance-summary against an older API build) must never blank the whole
+    // dashboard. Only the core summary is required to render the page.
+    if (hasPermission('assets.view')) {
+      api
+        .get('/dashboard/summary')
+        .then((r) => setSummary(r.data))
+        .catch(() => setError('Could not load dashboard data.'));
+
+      api
+        .get('/dashboard/recent-activity')
+        .then((r) => setActivity(r.data))
+        .catch(() => setActivity([]));
+
+      if (hasPermission('finance.view')) {
+        api
+          .get('/dashboard/finance-summary')
+          .then((r) => setFinance(r.data))
+          .catch(() => setFinance(null)); // optional panel - degrade silently
+      }
+    } else {
+      api
+        .get('/requests/mine')
+        .then((r) => setMyRequests(r.data))
+        .catch(() => setMyRequests([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (error) return <div className="text-critical">{error}</div>;
+
+  // Personal dashboard for users without fleet visibility (Priority 4.1).
+  if (!hasPermission('assets.view')) {
+    if (!myRequests) return <div className="text-text-secondary">Loading…</div>;
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-text-primary">My Equipment Requests</h1>
+          <p className="text-text-secondary text-sm mt-1">Your requests and their current stage.</p>
+        </div>
+        <div className="bg-white rounded-lg border border-border shadow-card divide-y divide-border">
+          {myRequests.length === 0 && (
+            <div className="px-5 py-6 text-sm text-text-secondary text-center">
+              No requests yet.
+            </div>
+          )}
+          {myRequests.map((r: any) => (
+            <div key={r.id} className="px-5 py-3 flex items-center justify-between text-sm">
+              <div>
+                <div className="font-medium text-text-primary">{r.requestNumber}</div>
+                <div className="text-text-secondary text-xs">{r.requestType.replace(/_/g, ' ')}</div>
+              </div>
+              <span className="text-xs font-medium px-2 py-1 rounded bg-canvas border border-border text-text-secondary">
+                {r.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (!summary) return <div className="text-text-secondary">Loading…</div>;
 
   const c = summary.countsByStatus;
@@ -67,6 +130,30 @@ export function Dashboard() {
         <Card label="Pending Approvals" value={summary.pendingApprovals} icon={ClipboardList} />
         <Card label="Overdue" value={summary.overdueAssignments} icon={Clock} tone="text-critical" />
       </div>
+
+      {/* Finance row - only rendered for finance.view holders; the data
+          itself is also server-guarded, this is purely UX scoping. */}
+      {finance && finance.byCurrency.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {finance.byCurrency.map((f) => (
+            <Card
+              key={f.currency}
+              label={`Acquisition Value (${f.currency})`}
+              value={f.assetCount}
+              sub={`${f.currency} ${f.totalAcquisitionCost.toLocaleString(undefined, { maximumFractionDigits: 0 })} total`}
+              icon={BarChart3}
+            />
+          ))}
+        </div>
+      )}
+      {finance && finance.baseCurrencyTotal > 0 && (
+        <div className="text-sm text-text-secondary">
+          Total acquisition value (base currency, at recorded acquisition rates):{' '}
+          <span className="font-semibold text-text-primary">
+            {finance.baseCurrencyTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-lg border border-border shadow-card">

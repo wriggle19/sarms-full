@@ -77,3 +77,55 @@ tag, `currentCustodianId` correctness across issue→return, append-only history
 - Depreciation schedule background calculation.
 - Excel export via spreadsheet library (CSV exists today).
 - Frontend code splitting (dynamic import of heavy QR/barcode libs).
+
+---
+
+## Addendum — Production-Hardening Pass (2026-09-15)
+
+**Priority 0 (broken):** imports.service.ts compile errors fixed (explicit Map typing); .env.example verified complete (+ scheduler/seed vars); seed now refuses NODE_ENV=production without SEED_ALLOW_PRODUCTION=true --force AND SEED_ADMIN_PASSWORD (both refusal paths tested live).
+
+**Priority 1 (operations):** global AllExceptionsFilter (uniform {statusCode,message,error}, no stack leakage in prod); RequestIdMiddleware (correlation ids + access logs); GET /health (200 healthy / 503 degraded verified at runtime; app fails fast at boot if DB unreachable); password-reset throttle 3/10min; verified no secret has a working default (config.getOrThrow).
+
+**Priority 2 (tests):** 26 unit tests + 5 integration tests on live Postgres (incl. the dual-officer issuance race — exactly one wins) + 9 e2e tests (login → request → 2-step approval → finalize issue → duplicate-issue refusal → return → custodian cleared → audit RBAC). Real bugs caught: IT-officer role lacked requests.approve while being the default workflow's designated approver (fixed in seed); nest build emitted dist/src/main.js while start/Docker expected dist/main.js (added tsconfig.build.json, verified).
+
+**Priority 3 (CI):** .github/workflows/ci.yml — API job (tsc, unit, build, Postgres, migrate, seed, e2e) + web job (build). Push/PR to main.
+
+**Priority 4 (gaps):** role-scoped dashboard (fleet overview vs personal My Requests; finance row via new server-guarded /dashboard/finance-summary); exchangeRate + server-computed baseCurrencyAmount on Asset (additive migration, originals never mutated, converted amount never client-submitted); printable clearance certificate with session-resolved asset list (XSS-escaped); nav items gated on exact server-side permissions (bulk=assets.transfer, imports=assets.create, audit=audit.view, settings=roles.manage, ...).
+
+**Priority 5 (performance):** React.lazy route splitting — initial bundle 1.3MB → 255KB; AssetDetail 968KB → 10KB with on-demand QR/barcode codecs (justified on-demand bwip-js chunk documented in vite.config.ts); 5 justified Asset indexes added (currentCustodianId, responsibleDepartmentId, vendorId, purchaseOrderId, academicYearId) via additive migration; receiveItem() loop reviewed — acceptable at tens-of-units-per-PO, no N+1 reads.
+
+**Final verification:** tsc clean; 31/31 unit+integration; 9/9 e2e; both builds succeed; prisma validate + schema/DB diff empty; no .env tracked; seed guard tested; health 200/503 tested.
+
+**Deferred / noted:** no asset-edit endpoint exists (create/status/delete only) — next phase; bwip-js → lighter Code128-only library is an optional win; observe CI on first push (all steps validated locally).
+
+
+---
+
+## Addendum 2 — "Dashboard not coming up" root cause + browser verification (2026-09-15)
+
+**Root cause of the reported blank/broken dashboard (two compounding causes):**
+
+1. **A stale API process was still bound to :3000** — an older `node` process built before this session's changes. Proof: `GET /health` returned the NestJS default 404 shape instead of the new health payload. That old build therefore had **no `/dashboard/finance-summary` route**.
+2. **The new Dashboard code treated that as fatal**: it issued `Promise.all([summary, recent-activity, finance-summary])` and a single rejection (the 404) rejected the whole batch → the page rendered only "Could not load dashboard data." ("dashboard not coming up") for any user holding `finance.view` (i.e. the admin). This regression was introduced by the Priority 4.1 dashboard work and is the real defect to fix.
+
+**Fixes applied:**
+- `Dashboard.tsx` now settles **each call independently**: the core summary is required, while `recent-activity` and the finance panel degrade silently (empty/absent) instead of blanking the page. Optional UI can no longer take down the dashboard.
+- Restarted the API on :3000 from the current build (stale PID 17803 terminated) — `/health` now 200 and all three dashboard endpoints return 200.
+- Added a missing `public/favicon.svg` + `<link rel="icon">` in `index.html` — removed the last console 404.
+
+**Real-browser verification** (headless Chrome via puppeteer-core driving the actual Vite dev server, since API-level checks cannot prove rendering):
+
+| Check | Result |
+|---|---|
+| Login as `admin@sarms.local` → dashboard | FLEET OVERVIEW rendered, 18 nav items, no error banner |
+| Login as `teacher@sarms.local` → dashboard | Renders, 8 nav items (permission-scoped correctly) |
+| Sweep of all 23 routes as admin | All render content; no page errors, no console errors, no 4xx/5xx |
+| `/assets/:id` lazy QR/barcode panel | QR + barcode labels render, QR SVG present, no fallback, no stuck loader |
+| `/scan/:qrToken` deep link | Shows the real asset (tag, status, condition, dept, custodian) |
+| `/clearance` → Generate Clearance Certificate | Popup opens with correct title/employee/department/date text |
+| Console/network errors after fixes | **none** |
+
+**Re-verified after these fixes:** API `tsc` clean · WEB `tsc` clean · API unit+integration 31/31 · e2e 9/9 (scratch Postgres recreated, migrated, seeded) · `npm run build` succeeds with no chunk warning · `/health` 200 on :3000.
+
+**Environment note:** the previously running API was stale and had to be replaced. In development use `npm run start:dev` (or `npm run build && npm run start`) so the served build always matches the source; the container entrypoint runs `prisma migrate deploy` before starting.
+

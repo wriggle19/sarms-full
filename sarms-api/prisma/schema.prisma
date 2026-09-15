@@ -299,6 +299,12 @@ model Asset {
 
   originalCost  Decimal? @db.Decimal(12, 2)
   currency      String?  @default("GHS")
+  // Multi-currency tracking (Priority 4.2). The ORIGINAL entered amount and
+  // currency are never mutated; exchangeRate and the converted amount are
+  // recorded alongside at the time of acquisition so historical values are
+  // preserved even if rates change later.
+  exchangeRate       Decimal? @db.Decimal(18, 8) // units of base currency per 1 unit of `currency`
+  baseCurrencyAmount Decimal? @db.Decimal(14, 2) // originalCost * exchangeRate, computed server-side
   fundingSource String?
   projectCode   String?
   assetClass    String?
@@ -354,7 +360,12 @@ model Asset {
   @@index([categoryId])
   @@index([statusId])
   @@index([owningDepartmentId])
+  @@index([responsibleDepartmentId])
   @@index([currentRoomId])
+  @@index([currentCustodianId])
+  @@index([vendorId])
+  @@index([purchaseOrderId])
+  @@index([academicYearId])
   @@index([serialNumber])
 }
 

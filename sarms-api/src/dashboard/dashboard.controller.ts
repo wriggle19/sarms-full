@@ -23,4 +23,10 @@ export class DashboardController {
   recentActivity() {
     return this.service.recentActivity();
   }
+
+  @Get('finance-summary')
+  @RequirePermission('finance.view')
+  financeSummary() {
+    return this.service.financeSummary();
+  }
 }

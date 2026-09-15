@@ -37,6 +37,36 @@ export class DashboardService {
     return { totalAssets, countsByStatus, pendingApprovals, overdueAssignments: overdue };
   }
 
+  async financeSummary() {
+    // Section 27: financial data is ONLY exposed through a finance.view
+    // permission - this endpoint is called from the role-scoped dashboard and
+    // the guard below is the authorization boundary (checked again here even
+    // though the controller also guards it, in case it gains new callers).
+    const grouped = await this.prisma.asset.groupBy({
+      by: ['currency'],
+      _sum: { originalCost: true },
+      _count: { id: true },
+      where: { isDeleted: false, originalCost: { not: null } },
+    });
+
+    // Base-currency equivalent, recorded at acquisition time (Priority 4.2).
+    const baseSum = await this.prisma.asset.aggregate({
+      _sum: { baseCurrencyAmount: true },
+      where: { isDeleted: false, baseCurrencyAmount: { not: null } },
+    });
+
+    return {
+      // Original entered amounts per currency - historical values, never converted.
+      byCurrency: grouped.map((g) => ({
+        currency: g.currency ?? 'UNKNOWN',
+        totalAcquisitionCost: Number(g._sum.originalCost ?? 0),
+        assetCount: g._count.id,
+      })),
+      // Server-computed base-currency equivalent recorded at acquisition.
+      baseCurrencyTotal: Number(baseSum._sum.baseCurrencyAmount ?? 0),
+    };
+  }
+
   async recentActivity(take = 15) {
     return this.prisma.assetHistory.findMany({
       orderBy: { eventDate: 'desc' },

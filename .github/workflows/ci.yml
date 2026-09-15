@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API — typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sarms-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: sarms-api/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Prisma generate
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # E2E against a real Postgres service container, mirroring the local run:
+      # migrate -> seed -> jest e2e. Skipped steps fail the job like any other.
+      - name: Start Postgres
+        run: |
+          sudo systemctl start postgresql
+          sudo -u postgres psql -c "CREATE USER sarms WITH PASSWORD 'sarms' CREATEDB;" || true
+          sudo -u postgres psql -c "CREATE DATABASE sarms_test OWNER sarms;"
+
+      - name: Migrate
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://sarms:sarms@localhost:5432/sarms_test
+
+      - name: Seed
+        run: npx ts-node prisma/seed.ts
+        env:
+          DATABASE_URL: postgresql://sarms:sarms@localhost:5432/sarms_test
+          SEED_ADMIN_PASSWORD: ci-seed-password-only
+
+      - name: E2E tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://sarms:sarms@localhost:5432/sarms_test
+          SEED_ADMIN_PASSWORD: ci-seed-password-only
+
+  web:
+    name: Web — typecheck and production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sarms-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: sarms-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build (includes tsc)
+        run: npm run build

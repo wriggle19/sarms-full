@@ -23,6 +23,43 @@ const PERMISSIONS = [
 ];
 
 async function main() {
+  // ---------------------------------------------------------------------
+  // PRODUCTION SAFETY GUARD
+  // ---------------------------------------------------------------------
+  // This script creates well-known accounts (admin@sarms.local etc.) and is
+  // therefore destructive-by-convention on a live system. Refuse to run
+  // against production unless the operator explicitly opts in.
+  //
+  // Allowed when:
+  //   - NODE_ENV is not "production", OR
+  //   - SEED_ALLOW_PRODUCTION=true is set (explicit opt-in), OR
+  //   - --force is passed on the command line.
+  //
+  // In production we additionally require SEED_ADMIN_PASSWORD so no
+  // well-known default credential can ever be created on a live database.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const forced =
+    process.env.SEED_ALLOW_PRODUCTION === 'true' || process.argv.includes('--force');
+
+  if (isProduction && !forced) {
+    console.error(
+      'REFUSING TO SEED: NODE_ENV=production.\n' +
+        'Seeding creates default accounts (admin@sarms.local). If you really ' +
+        'intend to seed this production database, re-run with an explicit ' +
+        'opt-in:\n\n' +
+        '  SEED_ALLOW_PRODUCTION=true SEED_ADMIN_PASSWORD="<strong-password>" npm run seed\n' +
+        '  # or: NODE_ENV=production npm run seed -- --force\n',
+    );
+    process.exit(1);
+  }
+
+  if (isProduction && !process.env.SEED_ADMIN_PASSWORD) {
+    console.error(
+      'REFUSING TO SEED: SEED_ADMIN_PASSWORD must be set when seeding in production.\n' +
+        'A default/well-known admin password must never be created on a live system.',
+    );
+    process.exit(1);
+  }
   // Permissions
   for (const code of PERMISSIONS) {
     await prisma.permission.upsert({ where: { code }, update: {}, create: { code } });
@@ -63,7 +100,8 @@ async function main() {
       code: {
         in: [
           'assets.view', 'assets.create', 'assets.edit', 'assets.issue', 'assets.return',
-          'assets.transfer', 'requests.view', 'catalog.manage', 'maintenance.manage',
+          'assets.transfer', 'requests.view', 'requests.approve', 'catalog.manage',
+          'maintenance.manage',
         ],
       },
     },
@@ -158,10 +196,16 @@ async function main() {
   });
 
   // Admin user
-  // Seed password comes from SEED_ADMIN_PASSWORD when set; the documented
-  // default is a placeholder that MUST be changed on first login (§4 of the
-  // completion prompt). Never seed a production database with defaults.
+  // Seed password: SEED_ADMIN_PASSWORD is authoritative. The fallback below
+  // is strictly for local development - the production guard at the top of
+  // main() guarantees it can never be reached with NODE_ENV=production.
   const seedPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
+  if (!process.env.SEED_ADMIN_PASSWORD) {
+    console.warn(
+      'WARNING: SEED_ADMIN_PASSWORD not set - using the development placeholder. ' +
+        'Never use this outside local development.',
+    );
+  }
   const adminPasswordHash = await bcrypt.hash(seedPassword, 12);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@sarms.local' },
